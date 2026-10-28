@@ -1,12 +1,12 @@
-# Cube Quest
+# The Dungeon of Us
 
-A small top-down cube game that runs in the browser. Grab every gem, then reach the portal before the enemy cubes catch you.
+A little anniversary dungeon adventure that runs in the browser. Explore torch-lit rooms, answer each guardian's question to unlock their door, collect memory hearts, and open the treasure chest at the end.
 
-- **WASD / arrow keys**: move
-- **Space / Shift**: dash (you're invincible while dashing and it stuns enemies)
-- **P / Esc**: pause · **M**: mute
-- Phone: drag on the left half to move, tap the right half to dash
+- **WASD / arrow keys**: walk
+- **E / Space / Enter**: talk, answer, open
+- **M**: sound on/off
+- Phone: drag on the left half to walk, tap the right half to talk
 
-Purple cubes wander. Red cubes chase you once you get close (watch for the `!`). Levels get bigger and busier, and every 3 levels gives you an extra heart.
+## Making it yours
 
-To play locally, open `index.html` in a browser. Nothing to install.
+Everything personal lives in the `CONFIG` block near the top of `index.html`: names, the guardians' questions and answers, the memories, and the final letter. Photos are optional. Put them in a `photos/` folder and reference them as `photo: 'photos/1.jpg'`.

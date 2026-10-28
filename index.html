@@ -26,11 +26,12 @@ const CONFIG = {
   intro: [
     { who: '???', say: 'Psst... {her}! Over here.' },
     { who: '???', say: "Welcome to the Dungeon of Us. Deep inside, there's a treasure waiting just for you." },
-    { who: '???', say: 'But every door is guarded. Each guardian will ask something only you would know.' },
-    { who: '???', say: 'Floating hearts hide memories, so grab them on the way.\nWASD to move, E to talk. Good luck! 💗' },
+    { who: '???', say: 'But every door is guarded. The guardians will test you, then ask something only you would know.' },
+    { who: '???', say: 'WASD to walk, SPACE to dash, E to talk.\nWatch out for slimes, and grab the floating hearts. Each one hides a memory. Good luck! 💗' },
   ],
 
   // One entry per locked door, in order (up to 4).
+  // Each guardian gives a little challenge first, then asks the questions.
   gates: [
     {
       name: 'Sir Clank', kind: 'knight',
@@ -42,7 +43,7 @@ const CONFIG = {
     },
     {
       name: 'Mochi', kind: 'cat',
-      lines: ['Mrrrow. I guard this door for snacks.', 'Answer correctly and I might move. Maybe.'],
+      lines: ['Mrrrow. I guard this door for snacks.', 'Answer my question and I might move. Maybe.'],
       questions: [
         { q: "What's {you}'s favorite food? (type it)", answers: ['pizza'], hint: "It's round, cheesy, and comes in slices." },
       ],
@@ -50,7 +51,7 @@ const CONFIG = {
     },
     {
       name: 'Boo', kind: 'ghost',
-      lines: ['Oooooo... I am the ghost of anniversaries past...', 'Tell me... when did it all begin?'],
+      lines: ['Oooooo... I am the ghost of anniversaries past...'],
       questions: [
         { q: 'When is our anniversary?', choices: ['January 1', 'February 14', 'October 29', 'December 25'], answer: 2, hint: 'Look at the calendar today 👀' },
       ],
@@ -58,7 +59,7 @@ const CONFIG = {
     },
     {
       name: 'Merlinda', kind: 'wizard',
-      lines: ['Ah, you have come far, {her}.', 'Beyond this door lies the treasure. One final question...'],
+      lines: ['Ah, you have come far, {her}.', 'Beyond this door lies the treasure.'],
       questions: [
         { q: 'Who loves you the most in the whole world?', choices: ['Sir Clank', 'Mochi the cat', '{you}', 'Boo the ghost'], answer: 2, yay: 'Obviously. Everyone in this dungeon knows that.' },
       ],
@@ -66,16 +67,17 @@ const CONFIG = {
     },
   ],
 
-  // A friendly NPC in the garden who just chats.
+  // A friendly frog in the garden. Catching his fireflies reveals `reward`.
   friend: {
     name: 'Pip', kind: 'frog',
     lines: [
       "Ribbit! I'm Pip, keeper of the garden.",
       'I heard there are {memories} memory hearts hidden in this dungeon. Have you found them all?',
     ],
+    reward: '{you} spent ages building this whole dungeon just for you. You are VERY loved. 💚',
   },
 
-  // Each heart you pick up shows one of these (up to 10).
+  // Each heart she picks up shows one of these (up to 10).
   memories: [
     { text: 'Memory #1: The first time we met. (Write the story here!)' },
     { text: 'Memory #2: Our first date. (What happened? What did we eat?)' },
@@ -253,6 +255,42 @@ const CONFIG = {
 
   const WRONG = ['Hmm... not quite!', 'Nope! Try again 💕', 'Are you sure about that? 🤨', 'Wrong! But I still believe in you.', 'Ehhh... think harder!'];
 
+  // Each guardian's mini challenge, in door order. Pip's is 'fireflies'.
+  const CHALLENGES = {
+    dummies: {
+      icon: '🎯', label: 'Dummies', goal: 3,
+      intro: ['But first, show me your moves!', 'Press SPACE to dash. Smash my 3 training dummies!'],
+      remind: 'Dash into the straw dummies with SPACE! Run at them and dash!',
+      done: 'HUZZAH! What a warrior! Now, my question...',
+    },
+    yarn: {
+      icon: '🧶', label: 'Yarn', goal: 3,
+      intro: ['Also... my 3 yarn balls rolled away into this hall.', "They run away from everyone. Catch them and I'll ask my question. Mind the slimes!"],
+      remind: 'My yarn balls are still out there! Corner them, or dash at them!',
+      done: 'My yarn!! You are my favorite human now. Okay, question time...',
+    },
+    lanterns: {
+      icon: '🔥', label: 'Lanterns', goal: 4,
+      intro: ["It's sooo dark in here... and the wisps keep whispering...", 'Light the 4 lanterns in the library for me? Just walk up to them.'],
+      remind: 'Still too dark... light all 4 lanterns, pleeease.',
+      done: 'Ahh, so cozy! Thank you! Now... my question...',
+    },
+    stars: {
+      icon: '⭐', label: 'Stars', goal: 10, time: 25,
+      intro: ['A test of speed! Catch 10 falling stars before time runs out.', 'You have 25 seconds. Ready... GO!'],
+      remind: 'Hurry! Catch the stars!',
+      done: 'Splendid! The stars adore you. And now, my final question...',
+      fail: 'Out of time! Talk to me when you want to try again.',
+    },
+    fireflies: {
+      icon: '✨', label: 'Fireflies', goal: 5,
+      intro: ['Could you catch 5 fireflies for me? They keep the garden glowing.', "Do it and I'll tell you a secret!"],
+      remind: "Catch 5 fireflies! They're the little glowing dots.",
+      done: 'Ribbit! Thank you! Here is the secret I promised...',
+    },
+  };
+  const GATE_CHALLENGES = ['dummies', 'yarn', 'lanterns', 'stars'];
+
   // ---------- Audio ----------
   let actx = null, muted = false, musicStarted = false;
   function initAudio() {
@@ -296,33 +334,44 @@ const CONFIG = {
   const T = 64, FLOOR = 0, WALL = 1, VOID = 2, DOOR = 3;
   const MW = 31, MH = 28;
   const ROOMS = [
-    { r: [0, 18, 10, 27], floor: ['#3b3650', '#37324b'] },  // start
-    { r: [0, 9, 10, 18],  floor: ['#38344f', '#343049'] },  // hall
-    { r: [10, 9, 20, 18], floor: ['#40344a', '#3b3046'] },  // library
-    { r: [10, 18, 20, 27], floor: ['#2f4a3c', '#2b4537'], garden: true },
-    { r: [10, 0, 20, 9],  floor: ['#33384f', '#2f344a'] },  // tower
-    { r: [20, 0, 30, 9],  floor: ['#5a3350', '#53304a'], heart: true },
+    { name: 'The Entrance',        r: [0, 18, 10, 27], floor: ['#3b3650', '#37324b'] },
+    { name: 'The Great Hall',      r: [0, 9, 10, 18],  floor: ['#38344f', '#343049'] },
+    { name: 'The Haunted Library', r: [10, 9, 20, 18], floor: ['#40344a', '#3b3046'], dark: true },
+    { name: "Pip's Garden",        r: [10, 18, 20, 27], floor: ['#2f4a3c', '#2b4537'], garden: true },
+    { name: "The Wizard's Tower",  r: [10, 0, 20, 9],  floor: ['#33384f', '#2f344a'] },
+    { name: 'The Heart Room',      r: [20, 0, 30, 9],  floor: ['#5a3350', '#53304a'], heart: true },
   ];
+  const LIBRARY = 2, GARDEN = 3, TOWER = 4, HEART = 5;
   const GATE_SPOTS = [
-    { door: [5, 18], npc: [6, 19] },
-    { door: [10, 13], npc: [9, 12] },
-    { door: [15, 9], npc: [16, 10] },
-    { door: [20, 4], npc: [19, 5] },
+    { door: [5, 18], npc: [6, 19], after: [5, 17] },
+    { door: [10, 13], npc: [9, 12], after: [11, 13] },
+    { door: [15, 9], npc: [16, 10], after: [15, 8] },
+    { door: [20, 4], npc: [19, 5], after: [21, 4] },
   ];
   const OPENINGS = [[15, 18]];
   const START = [5, 24];
   const FRIEND_SPOT = [15, 22];
   const CHEST_SPOT = [25, 4];
   const MEMORY_SPOTS = [[2, 25], [2, 11], [18, 16], [12, 20], [18, 25], [12, 2], [18, 7], [12, 25], [18, 20], [8, 16]];
-  const TORCHES = [[2, 18], [8, 18], [2, 9], [8, 9], [13, 9], [17, 9], [13, 18], [17, 18], [13, 0], [17, 0], [22, 0], [28, 0]];
+  const TORCHES = [[2, 18], [8, 18], [2, 9], [8, 9], [13, 9, 'library'], [17, 9, 'library'], [13, 18], [17, 18], [13, 0], [17, 0], [22, 0], [28, 0]];
   const CANDLES = [[22, 2], [28, 2], [22, 7], [28, 7]];
+  const DUMMIES = [[2, 21], [8, 21], [8, 25]];
+  const BRAZIERS = [[12, 11], [18, 12], [12, 16], [16, 16]];
+  const POTS = [[1, 26], [9, 26], [1, 10], [9, 17], [19, 17], [11, 17], [11, 1], [19, 1], [11, 8]];
+  const SLIMES = [[3, 12], [7, 15], [4, 16], [13, 4], [17, 6]];
+  const WISPS = [[12, 13], [18, 14]];
+  const YARN_SPOTS = [[2, 14], [6, 11], [5, 16]];
 
+  const MAX_HP = 3;
   let grid, blocked, roomOf;
-  let player, npcs, doors, memories, chest, flowers, lights;
+  let player, npcs, doors, memories, chest, flowers, props, enemies, yarns, stars, fireflies, berries, torches;
   let particles = [], texts = [], focus = null;
-  let state = 'title', time = 0, shake = 0, found = 0;
+  let state = 'title', time = 0, shake = 0, flash = 0, found = 0, faintT = 0;
+  let checkpoint = START, curRoom = 0, visited = new Set(), banner = { text: '', t: 0 };
   const cam = { x: 0, y: 0 };
   const idx = (x, y) => y * MW + x;
+  const center = (cx, cy) => ({ cx, cy, x: cx * T + T / 2, y: cy * T + T / 2 });
+  const roomAtPx = (x, y) => roomOf[idx(Math.floor(x / T), Math.floor(y / T))];
 
   function buildWorld() {
     grid = new Uint8Array(MW * MH).fill(VOID);
@@ -336,24 +385,22 @@ const CONFIG = {
         else if (grid[i] !== FLOOR) grid[i] = WALL;
       }
     });
-    for (const [x, y] of OPENINGS) { grid[idx(x, y)] = FLOOR; roomOf[idx(x, y)] = roomOf[idx(x, y - 1)]; }
-
-    const center = (cx, cy) => ({ cx, cy, x: cx * T + T / 2, y: cy * T + T / 2 });
+    for (const [x, y] of OPENINGS) grid[idx(x, y)] = FLOOR;
 
     npcs = []; doors = [];
     GATE_SPOTS.forEach((spot, gi) => {
       const gate = CONFIG.gates[gi];
       const [dx, dy] = spot.door;
-      if (!gate) { grid[idx(dx, dy)] = FLOOR; roomOf[idx(dx, dy)] = roomOf[idx(dx, dy + 1)]; return; }
+      if (!gate) { grid[idx(dx, dy)] = FLOOR; return; }
       grid[idx(dx, dy)] = DOOR;
-      const door = { ...center(dx, dy), gate: gi, anim: 0, opening: false, solved: false };
+      const door = { ...center(dx, dy), gate: gi, anim: 0, opening: false, solved: false, after: spot.after };
       doors.push(door);
-      const npc = { ...center(...spot.npc), name: gate.name, kind: gate.kind, cfg: gate, door };
+      const npc = { ...center(...spot.npc), name: gate.name, kind: gate.kind, cfg: gate, door, ch: { type: GATE_CHALLENGES[gi], state: 'idle', t: 0, count: 0 } };
       npcs.push(npc);
       blocked[idx(npc.cx, npc.cy)] = 1;
     });
     if (CONFIG.friend) {
-      const f = { ...center(...FRIEND_SPOT), name: CONFIG.friend.name, kind: CONFIG.friend.kind, cfg: CONFIG.friend, door: null };
+      const f = { ...center(...FRIEND_SPOT), name: CONFIG.friend.name, kind: CONFIG.friend.kind, cfg: CONFIG.friend, door: null, ch: { type: 'fireflies', state: 'idle', t: 0, count: 0 } };
       npcs.push(f);
       blocked[idx(f.cx, f.cy)] = 1;
     }
@@ -361,33 +408,40 @@ const CONFIG = {
     chest = { ...center(...CHEST_SPOT), opened: false, anim: 0 };
     blocked[idx(chest.cx, chest.cy)] = 1;
 
+    props = [
+      ...DUMMIES.map(p => ({ ...center(...p), type: 'dummy', broken: false })),
+      ...BRAZIERS.map(p => ({ ...center(...p), type: 'brazier', lit: false })),
+      ...POTS.map(p => ({ ...center(...p), type: 'pot', broken: false })),
+    ];
+    for (const p of props) blocked[idx(p.cx, p.cy)] = 1;
+
     memories = CONFIG.memories.slice(0, MEMORY_SPOTS.length).map((m, i) => ({ ...center(...MEMORY_SPOTS[i]), cfg: m, taken: false, phase: i * 1.3 }));
     found = 0;
 
-    // Garden flowers (deterministic so they don't jump around between plays)
-    flowers = [];
+    enemies = [
+      ...SLIMES.map(p => ({ ...center(...p), type: 'slime', h: 14, vx: 0, vy: 0, hop: rand(0, 1), alive: true })),
+      ...WISPS.map(p => ({ ...center(...p), type: 'wisp', h: 12, vx: 0, vy: 0, hop: 0, alive: true })),
+    ];
+    for (const e of enemies) e.room = roomAtPx(e.x, e.y);
+
+    yarns = []; stars = []; berries = [];
+    torches = TORCHES.map(([x, y, tag]) => ({ cx: x, cy: y, lit: tag !== 'library' }));
+
+    // Garden flowers and fireflies (deterministic so they don't jump around between plays)
     let seed = 7;
     const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-    const g = ROOMS.find(r => r.garden).r;
-    for (let k = 0; k < 34; k++) {
-      flowers.push({
-        x: (g[0] + 1) * T + rnd() * (g[2] - g[0] - 1) * T,
-        y: (g[1] + 1) * T + rnd() * (g[3] - g[1] - 1) * T,
-        c: ['#ff8fb8', '#ffd166', '#c9a7ff', '#ffffff'][(rnd() * 4) | 0],
-      });
-    }
+    const g = ROOMS[GARDEN].r;
+    const gx = () => (g[0] + 1) * T + rnd() * (g[2] - g[0] - 1) * T;
+    const gy = () => (g[1] + 1) * T + rnd() * (g[3] - g[1] - 1) * T;
+    flowers = [];
+    for (let k = 0; k < 34; k++) flowers.push({ x: gx(), y: gy(), c: ['#ff8fb8', '#ffd166', '#c9a7ff', '#ffffff'][(rnd() * 4) | 0] });
+    fireflies = [];
+    for (let k = 0; k < 7; k++) fireflies.push({ bx: clamp(gx(), (g[0] + 2) * T, (g[2] - 1) * T), by: clamp(gy(), (g[1] + 2) * T, (g[3] - 1) * T), ph: rnd() * 10, caught: false, x: 0, y: 0 });
 
-    lights = [];
-    for (const [x, y] of TORCHES) lights.push({ x: x * T + T / 2, y: y * T + T + 12, r: 210, a: 0.9, flicker: true, warm: true });
-    for (const [x, y] of CANDLES) lights.push({ x: x * T + T / 2, y: y * T + T / 2, r: 150, a: 0.8, flicker: true, warm: true });
-    const gr = ROOMS.find(r => r.garden).r;
-    lights.push({ x: (gr[0] + gr[2]) / 2 * T + T / 2, y: (gr[1] + gr[3]) / 2 * T + T / 2, r: 360, a: 0.45 });
-    const hr = ROOMS.find(r => r.heart).r;
-    lights.push({ x: (hr[0] + hr[2]) / 2 * T + T / 2, y: (hr[1] + hr[3]) / 2 * T + T / 2, r: 380, a: 0.5 });
-
-    player = { ...center(...START), h: 16, vx: 0, vy: 0, fx: 0, fy: -1, moving: false };
+    player = { ...center(...START), h: 16, vx: 0, vy: 0, fx: 0, fy: -1, moving: false, hp: MAX_HP, invuln: 0, dashT: 0, dashCd: 0, stepT: 0 };
+    checkpoint = START; curRoom = 0; visited = new Set([0]);
     cam.x = player.x; cam.y = player.y;
-    particles = []; texts = [];
+    particles = []; texts = []; banner = { text: '', t: 0 };
   }
 
   const solid = (cx, cy) => {
@@ -403,13 +457,15 @@ const CONFIG = {
     return false;
   }
 
+  // Moves an entity, sliding along walls. Returns which axes were blocked.
   function move(e, dx, dy) {
+    let bx = false, by = false;
     if (dx) {
       const nx = e.x + dx;
       if (!hitsWall(nx, e.y, e.h)) e.x = nx;
       else {
         e.x = dx > 0 ? Math.floor((nx + e.h) / T) * T - e.h - 0.01 : (Math.floor((nx - e.h) / T) + 1) * T + e.h + 0.01;
-        e.vx = 0;
+        bx = true;
       }
     }
     if (dy) {
@@ -417,9 +473,18 @@ const CONFIG = {
       if (!hitsWall(e.x, ny, e.h)) e.y = ny;
       else {
         e.y = dy > 0 ? Math.floor((ny + e.h) / T) * T - e.h - 0.01 : (Math.floor((ny - e.h) / T) + 1) * T + e.h + 0.01;
-        e.vy = 0;
+        by = true;
       }
     }
+    return { bx, by };
+  }
+
+  // Same as move(), but the entity bounces instead of leaving its home room.
+  function moveInRoom(e, dx, dy) {
+    const ox = e.x, oy = e.y;
+    const b = move(e, dx, dy);
+    if (roomAtPx(e.x, e.y) !== e.room) { e.x = ox; e.y = oy; return { bx: true, by: true }; }
+    return b;
   }
 
   function burst(x, y, color, count = 14, speed = 200) {
@@ -428,6 +493,8 @@ const CONFIG = {
       particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(0.4, 0.8), max: 0.8, color, size: rand(3, 7) });
     }
   }
+  function popText(x, y, text, color = '#fff') { texts.push({ x, y, text, color, life: 1.1 }); }
+  function showBanner(text) { banner = { text, t: 2.4 }; }
 
   // ---------- Input ----------
   const keys = {};
@@ -444,7 +511,10 @@ const CONFIG = {
     if (e.repeat) return;
     if (state === 'title' && (e.code === 'Enter' || e.code === 'Space')) startGame();
     else if (dlg.active) dialogKey(e.code);
-    else if (state === 'play' && ACT.includes(e.code)) interact();
+    else if (state === 'play') {
+      if (e.code === 'KeyE' || e.code === 'Enter') interact();
+      else if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') dash();
+    }
   });
   addEventListener('keyup', e => { keys[e.code] = false; });
   addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
@@ -453,7 +523,7 @@ const CONFIG = {
     isTouch = true; initAudio();
     for (const t of e.changedTouches) {
       if (t.clientX < VW * 0.6 && joy.id === null) { joy.id = t.identifier; joy.ox = joy.x = t.clientX; joy.oy = joy.y = t.clientY; }
-      else if (state === 'play' && !dlg.active) interact();
+      else if (state === 'play' && !dlg.active) { if (focus) interact(); else dash(); }
     }
     e.preventDefault();
   }, { passive: false });
@@ -481,7 +551,7 @@ const CONFIG = {
   }
 
   // ---------- Dialog ----------
-  const dlg = { active: false, steps: [], cur: null, full: '', shown: 0, typing: false, sel: 0, onDone: null, blip: 0 };
+  const dlg = { active: false, steps: [], cur: null, full: '', shown: 0, typing: false, sel: 0, onDone: null };
 
   function openDialog(steps, onDone) {
     dlg.active = true; dlg.steps = steps.slice(); dlg.onDone = onDone || null;
@@ -581,21 +651,104 @@ const CONFIG = {
   });
   $('dlgInput').addEventListener('keydown', e => { if (e.code === 'Escape') closeDialog(false); });
 
+  // ---------- Challenges ----------
+  function progress(n) {
+    switch (n.ch.type) {
+      case 'dummies': return props.filter(p => p.type === 'dummy' && p.broken).length;
+      case 'yarn': return yarns.filter(y => y.caught).length;
+      case 'lanterns': return props.filter(p => p.type === 'brazier' && p.lit).length;
+      case 'stars': return n.ch.count;
+      case 'fireflies': return fireflies.filter(f => f.caught).length;
+    }
+    return 0;
+  }
+
+  function startChallenge(n) {
+    const ch = n.ch, def = CHALLENGES[ch.type];
+    ch.state = 'active';
+    if (ch.type === 'yarn' && !yarns.length) {
+      const colors = ['#ff6f9f', '#7cc6ff', '#ffd166'];
+      yarns = YARN_SPOTS.map((p, i) => ({ ...center(...p), h: 11, vx: 0, vy: 0, caught: false, color: colors[i], room: 1, spin: 0 }));
+    }
+    if (ch.type === 'stars') { ch.t = def.time; ch.count = 0; stars = []; }
+    sfx(440, 0.15, 'triangle', 0.06, 300);
+  }
+
+  function askSteps(n) {
+    const who = n.name;
+    return [
+      ...n.cfg.questions.map(q => ({ who, ask: q, tries: 0 })),
+      { who, say: n.cfg.success },
+      { do: () => openDoor(n.door) },
+    ];
+  }
+
+  function completeChallenge(n) {
+    const def = CHALLENGES[n.ch.type];
+    n.ch.state = 'done';
+    stars = [];
+    chime([523, 659, 784, 1046]);
+    burst(player.x, player.y - 20, '#ffd166', 26, 240);
+    showBanner(`${def.icon} Challenge complete!`);
+    if (n.ch.type === 'lanterns') for (const t of torches) t.lit = true;
+    const who = n.name;
+    if (n.door) openDialog([{ who, say: def.done }, ...askSteps(n)]);
+    else openDialog([{ who, say: def.done }, { who: '💚 Secret', say: n.cfg.reward || 'You are loved!' }]);
+  }
+
+  function updateChallenges(dt) {
+    for (const n of npcs) {
+      const ch = n.ch;
+      if (!ch || ch.state !== 'active') continue;
+      const def = CHALLENGES[ch.type];
+      if (ch.type === 'stars') {
+        ch.t -= dt;
+        while (stars.length < 3) spawnStar();
+        if (ch.t <= 0) {
+          ch.state = 'idle'; stars = [];
+          sfx(200, 0.4, 'sawtooth', 0.05, -100);
+          openDialog([{ who: n.name, say: def.fail }]);
+          continue;
+        }
+      }
+      if (progress(n) >= def.goal) completeChallenge(n);
+    }
+  }
+
+  function spawnStar() {
+    const r = ROOMS[TOWER].r;
+    for (let tries = 0; tries < 30; tries++) {
+      const cx = r[0] + 1 + ((Math.random() * (r[2] - r[0] - 1)) | 0), cy = r[1] + 1 + ((Math.random() * (r[3] - r[1] - 1)) | 0);
+      if (blocked[idx(cx, cy)] || stars.some(s => s.cx === cx && s.cy === cy)) continue;
+      if (Math.hypot(cx * T + 32 - player.x, cy * T + 32 - player.y) < T * 1.2) continue;
+      stars.push({ ...center(cx, cy), life: 3.6, born: time });
+      return;
+    }
+  }
+
   // ---------- Interactions ----------
   function talk(n) {
     const who = n.name;
     const say = t => ({ who, say: t });
-    if (!n.door) { openDialog(n.cfg.lines.map(say)); return; }
-    if (n.door.solved) { openDialog([say(n.cfg.after || 'The way is open. Go on! 💗')]); return; }
-    const steps = n.cfg.lines.map(say);
-    for (const q of n.cfg.questions) steps.push({ who, ask: q, tries: 0 });
-    steps.push(say(n.cfg.success));
-    steps.push({ do: () => openDoor(n.door) });
-    openDialog(steps);
+    const ch = n.ch, def = ch && CHALLENGES[ch.type];
+
+    if (n.door && n.door.solved) { openDialog([say(n.cfg.after || 'The way is open. Go on! 💗')]); return; }
+    if (!n.door && ch.state === 'done') { openDialog([say(n.cfg.after || 'Ribbit! Thanks again for the fireflies! 💚')]); return; }
+
+    if (ch.state === 'idle') {
+      const intro = n.met ? [] : n.cfg.lines.map(say);
+      n.met = true;
+      openDialog([...intro, ...def.intro.map(say), { do: () => startChallenge(n) }]);
+    } else if (ch.state === 'active') {
+      openDialog([say(`${def.remind}  (${progress(n)} / ${def.goal})`)]);
+    } else {
+      openDialog(askSteps(n));
+    }
   }
 
   function openDoor(d) {
     d.solved = true; d.opening = true;
+    checkpoint = d.after;
     sfx(90, 0.9, 'sawtooth', 0.05, 40);
     setTimeout(() => chime([523, 659, 784]), 500);
   }
@@ -629,10 +782,53 @@ const CONFIG = {
     return best;
   }
 
+  function dash() {
+    const p = player;
+    if (p.dashCd > 0 || state !== 'play') return;
+    p.dashT = 0.16; p.dashCd = 0.55;
+    p.vx = p.fx * 820; p.vy = p.fy * 820;
+    shake = Math.max(shake, 3);
+    sfx(260, 0.14, 'sawtooth', 0.035, 420);
+  }
+
+  function hurt(src) {
+    const p = player;
+    p.hp--; p.invuln = 1.3; flash = 0.35; shake = 12;
+    const l = Math.hypot(p.x - src.x, p.y - src.y) || 1;
+    p.vx = (p.x - src.x) / l * 520; p.vy = (p.y - src.y) / l * 520;
+    burst(p.x, p.y, '#ff6f9f', 14, 220);
+    sfx(300, 0.3, 'sawtooth', 0.07, -220);
+    if (p.hp <= 0) { state = 'faint'; faintT = 0; }
+  }
+
+  function smash(o) {
+    o.broken = true;
+    blocked[idx(o.cx, o.cy)] = 0;
+    shake = Math.max(shake, 7);
+    const color = o.type === 'dummy' ? '#e0b060' : '#c46b3f';
+    burst(o.x, o.y - 10, color, 20, 260);
+    sfx(150, 0.18, 'square', 0.06, -70);
+    if (o.type === 'pot') {
+      if (Math.random() < 0.55) berries.push({ x: o.x, y: o.y, t: 0 });
+      else popText(o.x, o.y - 30, pick(['✨', '💫', '🌟']));
+    } else popText(o.x, o.y - 40, 'SMASH!', '#ffd166');
+  }
+
+  function pop(e) {
+    e.alive = false;
+    burst(e.x, e.y - 8, e.type === 'slime' ? '#5fd3c8' : '#a8d8ff', 18, 240);
+    sfx(700, 0.12, 'square', 0.05, 500);
+    popText(e.x, e.y - 30, pick(['POP!', 'BOING!', 'Bye~']), '#a8fff4');
+    shake = Math.max(shake, 5);
+    if (Math.random() < 0.3) berries.push({ x: e.x, y: e.y, t: 0 });
+  }
+
   // ---------- Update ----------
   function update(dt) {
     time += dt;
     shake = Math.max(0, shake - dt * 30);
+    flash = Math.max(0, flash - dt);
+    if (banner.t > 0) banner.t -= dt;
 
     if (dlg.active && dlg.typing) {
       const before = Math.floor(dlg.shown);
@@ -645,14 +841,18 @@ const CONFIG = {
       if (dlg.shown >= dlg.full.length) finishTyping();
     }
 
-    const p = player;
-    const inp = state === 'play' && !dlg.active ? inputVector() : { x: 0, y: 0 };
-    p.moving = Math.hypot(inp.x, inp.y) > 0.1;
-    if (p.moving) { const l = Math.hypot(inp.x, inp.y); p.fx = inp.x / l; p.fy = inp.y / l; }
-    const k = 1 - Math.exp(-14 * dt);
-    p.vx += (inp.x * 250 - p.vx) * k;
-    p.vy += (inp.y * 250 - p.vy) * k;
-    move(p, p.vx * dt, p.vy * dt);
+    const live = state === 'play' && !dlg.active;
+    updatePlayer(dt, live);
+    if (live) {
+      updateEnemies(dt);
+      updateYarn(dt);
+      updatePickups(dt);
+      updateChallenges(dt);
+    }
+    for (const f of fireflies) {
+      f.x = f.bx + Math.sin(time * 0.9 + f.ph) * 80 + Math.sin(time * 2.3 + f.ph * 2) * 20;
+      f.y = f.by + Math.cos(time * 0.7 + f.ph * 1.3) * 60;
+    }
 
     for (const d of doors) {
       if (!d.opening) continue;
@@ -661,21 +861,21 @@ const CONFIG = {
       if (Math.random() < 0.5) particles.push({ x: d.x + rand(-28, 28), y: d.y + 24, vx: rand(-30, 30), vy: rand(-60, -20), life: 0.6, max: 0.6, color: '#8a7a6a', size: rand(4, 8) });
       if (d.anim >= 1) { d.opening = false; grid[idx(d.cx, d.cy)] = FLOOR; }
     }
+    if (chest.opened) chest.anim = Math.min(1, chest.anim + dt * 2);
 
-    if (state === 'play' && !dlg.active) {
-      for (const m of memories) {
-        if (m.taken || Math.hypot(m.x - p.x, m.y - p.y) > 34) continue;
-        m.taken = true; found++;
-        burst(m.x, m.y - 24, '#ff8fb8', 22, 200);
-        chime([784, 988, 1175]);
-        texts.push({ x: m.x, y: m.y - 50, text: '💗', life: 1.2 });
-        openDialog([{ who: `💗 Memory ${found}/${memories.length}`, say: m.cfg.text, photo: m.cfg.photo }]);
-        break;
+    if (state === 'faint') {
+      faintT += dt;
+      if (faintT > 1.4) {
+        const p = player;
+        Object.assign(p, center(...checkpoint), { hp: MAX_HP, invuln: 2, vx: 0, vy: 0 });
+        cam.x = p.x; cam.y = p.y;
+        state = 'play';
+        showBanner('Love revives you! 💗');
+        chime([523, 784]);
       }
     }
 
-    focus = state === 'play' && !dlg.active ? findFocus() : null;
-    if (chest.opened) chest.anim = Math.min(1, chest.anim + dt * 2);
+    focus = live ? findFocus() : null;
 
     for (const q of particles) { q.x += q.vx * dt; q.y += q.vy * dt; q.vx *= 0.92; q.vy *= 0.92; q.life -= dt; }
     particles = particles.filter(q => q.life > 0);
@@ -683,8 +883,152 @@ const CONFIG = {
     texts = texts.filter(t => t.life > 0);
 
     const c = 1 - Math.exp(-7 * dt);
-    cam.x += (p.x - cam.x) * c;
-    cam.y += (p.y - cam.y) * c;
+    cam.x += (player.x - cam.x) * c;
+    cam.y += (player.y - cam.y) * c;
+  }
+
+  function updatePlayer(dt, live) {
+    const p = player;
+    const inp = live ? inputVector() : { x: 0, y: 0 };
+    p.moving = Math.hypot(inp.x, inp.y) > 0.1;
+    if (p.moving) { const l = Math.hypot(inp.x, inp.y); p.fx = inp.x / l; p.fy = inp.y / l; }
+    p.dashCd = Math.max(0, p.dashCd - dt);
+    p.invuln = Math.max(0, p.invuln - dt);
+
+    if (p.dashT > 0) {
+      p.dashT -= dt;
+      particles.push({ x: p.x + rand(-6, 6), y: p.y + rand(-6, 6), vx: 0, vy: 0, life: 0.25, max: 0.25, color: '#ffc2da', size: 10 });
+    } else {
+      const k = 1 - Math.exp(-14 * dt);
+      p.vx += (inp.x * 250 - p.vx) * k;
+      p.vy += (inp.y * 250 - p.vy) * k;
+    }
+    move(p, p.vx * dt, p.vy * dt);
+
+    if (p.moving && p.dashT <= 0) {
+      p.stepT -= dt;
+      if (p.stepT <= 0) {
+        p.stepT = 0.16;
+        particles.push({ x: p.x + rand(-6, 6), y: p.y + p.h, vx: rand(-15, 15), vy: rand(-25, -5), life: 0.35, max: 0.35, color: 'rgba(200,190,230,.5)', size: rand(3, 5) });
+      }
+    }
+    if (!live) return;
+
+    // Smash pots and dummies by dashing into them; light lanterns by touching them.
+    for (const o of props) {
+      const near = Math.abs(o.x - p.x) < T / 2 + p.h + 6 && Math.abs(o.y - p.y) < T / 2 + p.h + 6;
+      if (!near) continue;
+      if (o.type === 'brazier') {
+        if (!o.lit) {
+          o.lit = true;
+          burst(o.x, o.y - 30, '#ff9b3d', 20, 160);
+          sfx(330, 0.3, 'triangle', 0.06, 330);
+          popText(o.x, o.y - 50, '🔥', '#ff9b3d');
+        }
+      } else if (!o.broken && p.dashT > 0) smash(o);
+    }
+
+    const ri = roomAtPx(p.x, p.y);
+    if (ri >= 0 && ri !== curRoom) {
+      curRoom = ri;
+      if (!visited.has(ri)) { visited.add(ri); showBanner(ROOMS[ri].name); }
+    }
+  }
+
+  function updateEnemies(dt) {
+    const p = player;
+    for (const e of enemies) {
+      if (!e.alive) continue;
+      const dx = p.x - e.x, dy = p.y - e.y, d = Math.hypot(dx, dy) || 1;
+      const sameRoom = curRoom === e.room;
+      if (e.type === 'slime') {
+        e.hop -= dt;
+        if (e.hop <= 0) {
+          e.hop = rand(0.8, 1.3);
+          let a = Math.random() * Math.PI * 2;
+          if (sameRoom && d < 280) a = Math.atan2(dy, dx) + rand(-0.4, 0.4);
+          const s = rand(200, 250);
+          e.vx = Math.cos(a) * s; e.vy = Math.sin(a) * s;
+        }
+        e.vx *= Math.exp(-4 * dt); e.vy *= Math.exp(-4 * dt);
+      } else {
+        const s = sameRoom ? 55 : 0;
+        e.vx = dx / d * s + Math.sin(time * 2 + e.cx) * 20;
+        e.vy = dy / d * s + Math.cos(time * 1.7 + e.cy) * 20;
+      }
+      const vx = e.vx, vy = e.vy;
+      const b = moveInRoom(e, e.vx * dt, e.vy * dt);
+      if (b.bx) e.vx = -vx * 0.6;
+      if (b.by) e.vy = -vy * 0.6;
+
+      if (Math.abs(dx) < e.h + p.h - 2 && Math.abs(dy) < e.h + p.h - 2) {
+        if (p.dashT > 0) pop(e);
+        else if (p.invuln <= 0 && state === 'play') hurt(e);
+      }
+    }
+  }
+
+  function updateYarn(dt) {
+    const p = player;
+    for (const y of yarns) {
+      if (y.caught) continue;
+      const dx = y.x - p.x, dy = y.y - p.y, d = Math.hypot(dx, dy) || 1;
+      if (d < 170) { y.vx += dx / d * 1100 * dt; y.vy += dy / d * 1100 * dt; }
+      const sp = Math.hypot(y.vx, y.vy);
+      if (sp > 200) { y.vx *= 200 / sp; y.vy *= 200 / sp; }
+      y.vx *= Math.exp(-2.5 * dt); y.vy *= Math.exp(-2.5 * dt);
+      y.spin += sp * dt * 0.05;
+      const vx = y.vx, vy = y.vy;
+      const b = moveInRoom(y, y.vx * dt, y.vy * dt);
+      if (b.bx) y.vx = -vx * 0.8;
+      if (b.by) y.vy = -vy * 0.8;
+      if (d < 30) {
+        y.caught = true;
+        burst(y.x, y.y - 10, y.color, 16, 180);
+        chime([880, 1175]);
+        const n = npcs.find(m => m.ch.type === 'yarn');
+        popText(y.x, y.y - 30, `🧶 ${progress(n)}/3`, '#ffd166');
+      }
+    }
+  }
+
+  function updatePickups(dt) {
+    const p = player;
+    for (const m of memories) {
+      if (m.taken || Math.hypot(m.x - p.x, m.y - p.y) > 34) continue;
+      m.taken = true; found++;
+      burst(m.x, m.y - 24, '#ff8fb8', 22, 200);
+      chime([784, 988, 1175]);
+      openDialog([{ who: `💗 Memory ${found}/${memories.length}`, say: m.cfg.text, photo: m.cfg.photo }]);
+      return;
+    }
+    for (let i = berries.length - 1; i >= 0; i--) {
+      const b = berries[i];
+      b.t += dt;
+      if (b.t > 0.4 && Math.hypot(b.x - p.x, b.y - p.y) < 30) {
+        berries.splice(i, 1);
+        if (p.hp < MAX_HP) { p.hp++; popText(b.x, b.y - 30, '+1 ♥', '#ff6f9f'); } else popText(b.x, b.y - 30, 'Yum!', '#ff6f9f');
+        sfx(660, 0.12, 'triangle', 0.06, 300);
+      }
+    }
+    const sn = npcs.find(m => m.ch.type === 'stars');
+    for (let i = stars.length - 1; i >= 0; i--) {
+      const s = stars[i];
+      s.life -= dt;
+      if (Math.hypot(s.x - p.x, s.y - p.y) < 34) {
+        stars.splice(i, 1);
+        sn.ch.count++;
+        burst(s.x, s.y - 20, '#ffd166', 14, 200);
+        sfx(880 + sn.ch.count * 40, 0.12, 'triangle', 0.06, 300);
+      } else if (s.life <= 0) stars.splice(i, 1);
+    }
+    for (const f of fireflies) {
+      if (f.caught || Math.hypot(f.x - p.x, f.y - 20 - p.y) > 30) continue;
+      f.caught = true;
+      burst(f.x, f.y - 20, '#e8ff8a', 12, 150);
+      sfx(1200, 0.1, 'triangle', 0.05, 400);
+      popText(f.x, f.y - 40, '✨', '#e8ff8a');
+    }
   }
 
   // ---------- Drawing helpers ----------
@@ -705,6 +1049,14 @@ const CONFIG = {
     ctx.bezierCurveTo(x, y + s * 0.8, x + s / 2, y + s * 0.6, x + s / 2, y + s * 0.3);
     ctx.bezierCurveTo(x + s / 2, y, x, y, x, y + s * 0.3);
   }
+  function starPath(x, y, r) {
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + i * Math.PI / 5, q = i % 2 ? r * 0.45 : r;
+      ctx.lineTo(x + Math.cos(a) * q, y + Math.sin(a) * q);
+    }
+    ctx.closePath();
+  }
   function shadow(x, y, r) {
     ctx.fillStyle = 'rgba(0,0,0,.3)';
     ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.45, 0, 0, Math.PI * 2); ctx.fill();
@@ -715,6 +1067,13 @@ const CONFIG = {
       ctx.fillStyle = '#fff'; ctx.fillRect(ex - 3.5, ey - 4, 7, 8);
       ctx.fillStyle = '#1b1530'; ctx.fillRect(ex - 2 + fx * 1.5, ey - 2 + fy * 1.5, 4, 4);
     }
+  }
+  function flame(x, y, s, seed) {
+    const f = Math.sin(time * 18 + seed * 3) * 2;
+    ctx.fillStyle = '#ff9b3d';
+    ctx.beginPath(); ctx.ellipse(x, y, (6 + f * 0.3) * s, (10 + f) * s, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffe08a';
+    ctx.beginPath(); ctx.ellipse(x, y + 3 * s, 3 * s, (5 + f * 0.5) * s, 0, 0, Math.PI * 2); ctx.fill();
   }
 
   const WALL_H = 34;
@@ -730,11 +1089,7 @@ const CONFIG = {
     if (torch) {
       const tx = x + T / 2, ty = y + T - 20;
       ctx.fillStyle = '#5a3a22'; ctx.fillRect(tx - 3, ty - 4, 6, 12);
-      const f = Math.sin(time * 18 + cx * 3) * 2;
-      ctx.fillStyle = '#ff9b3d';
-      ctx.beginPath(); ctx.ellipse(tx, ty - 10, 6 + f * 0.3, 10 + f, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#ffe08a';
-      ctx.beginPath(); ctx.ellipse(tx, ty - 7, 3, 5 + f * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+      if (torch.lit) flame(tx, ty - 10, 1, cx);
     }
   }
 
@@ -750,6 +1105,31 @@ const CONFIG = {
       ctx.fillStyle = '#ffd166';
       ctx.beginPath(); ctx.arc(x + T / 2, y + T - h / 2 - 2, 6, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#5d3a1e'; ctx.fillRect(x + T / 2 - 1.5, y + T - h / 2 - 3, 3, 6);
+    }
+  }
+
+  function drawProp(o) {
+    const x = o.x, y = o.y;
+    if (o.type === 'pot') {
+      if (o.broken) return;
+      block(x - 16, y - 12, 32, 30, 18, '#d07a4a', '#8f4528', 10);
+      ctx.fillStyle = '#5a2a16'; ctx.beginPath(); ctx.ellipse(x, y - 24, 9, 6, 0, 0, Math.PI * 2); ctx.fill();
+    } else if (o.type === 'dummy') {
+      if (o.broken) {
+        ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - 4, y - 4, 8, 12);
+        ctx.fillStyle = '#c9a35a'; ctx.fillRect(x - 14, y + 4, 28, 5);
+        return;
+      }
+      ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - 4, y - 30, 8, 40);
+      ctx.fillStyle = '#c9a35a'; ctx.fillRect(x - 20, y - 26, 40, 7);
+      ctx.fillStyle = '#e0b866'; ctx.beginPath(); ctx.arc(x, y - 42, 16, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#e5484d'; ctx.beginPath(); ctx.arc(x, y - 42, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y - 42, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#e5484d'; ctx.beginPath(); ctx.arc(x, y - 42, 2, 0, Math.PI * 2); ctx.fill();
+    } else if (o.type === 'brazier') {
+      block(x - 18, y - 14, 36, 32, 22, '#6d6880', '#46425a', 6);
+      ctx.fillStyle = '#231f30'; ctx.beginPath(); ctx.ellipse(x, y - 21, 12, 8, 0, 0, Math.PI * 2); ctx.fill();
+      if (o.lit) flame(x, y - 32, 1.5, o.cx + o.cy);
     }
   }
 
@@ -814,9 +1194,61 @@ const CONFIG = {
     }
     ctx.globalAlpha = 1;
 
-    if (n.door && !n.door.solved && !(focus && (focus.o === n || focus.o === n.door))) {
-      bubble(tx, y0 - H - (n.kind === 'wizard' ? 40 : 22) - Math.abs(Math.sin(time * 3)) * 4, '?', '#ffd166');
+    const waiting = n.door ? !n.door.solved : n.ch.state !== 'done';
+    if (waiting && !(focus && (focus.o === n || focus.o === n.door))) {
+      const mark = n.ch.state === 'active' ? '…' : n.ch.state === 'done' ? '!' : '?';
+      bubble(tx, y0 - H - (n.kind === 'wizard' ? 40 : 22) - Math.abs(Math.sin(time * 3)) * 4, mark, '#ffd166');
     }
+  }
+
+  function drawEnemy(e) {
+    if (e.type === 'slime') {
+      const sq = Math.min(1, Math.hypot(e.vx, e.vy) / 220);
+      const w = 30 + (1 - sq) * 4, hgt = 10 + sq * 8, x0 = e.x - w / 2, y0 = e.y - 12 - sq * 6;
+      block(x0, y0, w, 26, hgt, '#6fe3d6', '#2f9c93', 10);
+      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.beginPath(); ctx.ellipse(x0 + 8, y0 - hgt + 6, 4, 3, -0.5, 0, Math.PI * 2); ctx.fill();
+      const l = Math.hypot(player.x - e.x, player.y - e.y) || 1;
+      eyes(e.x, y0 - hgt + 14, (player.x - e.x) / l, (player.y - e.y) / l, 5);
+    } else {
+      const bob = Math.sin(time * 3 + e.cx) * 4, y = e.y - 26 + bob;
+      ctx.globalAlpha = 0.8;
+      ctx.fillStyle = '#a8d8ff';
+      ctx.beginPath(); ctx.arc(e.x, y, 13, Math.PI, 0);
+      ctx.lineTo(e.x + 13, y + 12);
+      for (let i = 0; i < 4; i++) ctx.lineTo(e.x + 13 - (i + 0.5) * 6.5, y + 12 + (i % 2 ? 5 : -2) + Math.sin(time * 8 + i) * 2);
+      ctx.lineTo(e.x - 13, y + 12); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#1b2a4a';
+      ctx.beginPath(); ctx.ellipse(e.x - 5, y - 1, 2.5, 4, 0, 0, Math.PI * 2); ctx.ellipse(e.x + 5, y - 1, 2.5, 4, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  function drawYarn(y) {
+    const cy = y.y - 10;
+    ctx.fillStyle = y.color;
+    ctx.beginPath(); ctx.arc(y.x, cy, 11, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath(); ctx.ellipse(y.x, cy, 11, 4 + i * 2.5, y.spin + i * 1.1, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+
+  function drawStar(s) {
+    if (s.life < 1 && Math.floor(time * 10) % 2) return;
+    const drop = Math.max(0, 1 - (time - s.born) * 4) * 120;
+    ctx.fillStyle = '#ffd166';
+    starPath(s.x, s.y - 26 - drop + Math.sin(time * 4 + s.cx) * 3, 14); ctx.fill();
+    ctx.fillStyle = '#fff3c4';
+    starPath(s.x, s.y - 26 - drop + Math.sin(time * 4 + s.cx) * 3, 6); ctx.fill();
+  }
+
+  function drawBerry(b) {
+    const y = b.y - 14 - Math.abs(Math.sin(time * 4 + b.x)) * 4;
+    ctx.fillStyle = '#ff4d6d';
+    ctx.beginPath(); ctx.moveTo(b.x - 9, y - 4); ctx.quadraticCurveTo(b.x, y - 10, b.x + 9, y - 4); ctx.quadraticCurveTo(b.x + 6, y + 10, b.x, y + 12); ctx.quadraticCurveTo(b.x - 6, y + 10, b.x - 9, y - 4); ctx.fill();
+    ctx.fillStyle = '#5fd36a'; ctx.fillRect(b.x - 6, y - 9, 12, 4);
+    ctx.fillStyle = '#ffe08a';
+    for (const [ox, oy] of [[-3, 0], [3, 1], [0, 5]]) ctx.fillRect(b.x + ox - 1, y + oy - 1, 2, 2);
   }
 
   function bubble(x, y, text, color) {
@@ -831,9 +1263,10 @@ const CONFIG = {
 
   function drawPlayer() {
     const p = player, h = p.h, H = 14;
+    if (p.invuln > 0 && Math.floor(time * 14) % 2 === 0) return;
     const bob = p.moving ? Math.abs(Math.sin(time * 14)) * 3 : 0;
     const x0 = p.x - h, y0 = p.y - h - bob;
-    block(x0, y0, h * 2, h * 2, H, '#ff9cc2', '#d9578a', 6);
+    block(x0, y0, h * 2, h * 2, H, p.dashT > 0 ? '#ffd3e4' : '#ff9cc2', '#d9578a', 6);
     const tx = p.x, ty = y0 - H + h;
     eyes(tx, ty - 1, p.fx, p.fy, 5.5);
     ctx.fillStyle = 'rgba(255,90,140,.55)';
@@ -879,7 +1312,7 @@ const CONFIG = {
   }
 
   // ---------- Render ----------
-  const torchSet = new Set(TORCHES.map(([x, y]) => idx(x, y)));
+  const torchAt = new Map();
 
   function render() {
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -906,8 +1339,8 @@ const CONFIG = {
       ctx.strokeRect(cx * T + 0.5, cy * T + 0.5, T - 1, T - 1);
     }
 
-    // Heart room rug and garden flowers
-    const hr = ROOMS.find(r => r.heart).r;
+    // Heart room rug, garden flowers, candles
+    const hr = ROOMS[HEART].r;
     ctx.fillStyle = '#b2416f'; rr((hr[0] + 2) * T, (hr[1] + 2) * T, (hr[2] - hr[0] - 3) * T, (hr[3] - hr[1] - 3) * T, 16); ctx.fill();
     ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 3; ctx.stroke();
     for (const f of flowers) {
@@ -924,27 +1357,37 @@ const CONFIG = {
     // Shadows
     for (const m of memories) if (!m.taken) shadow(m.x, m.y - 4, 9);
     for (const n of npcs) shadow(n.x, n.y + 18, 22);
+    for (const e of enemies) if (e.alive) shadow(e.x, e.y + 12, 15);
+    for (const y of yarns) if (!y.caught) shadow(y.x, y.y + 2, 10);
+    for (const s of stars) shadow(s.x, s.y + 4, 10);
     shadow(player.x, player.y + player.h - 2, player.h + 3);
 
     // Depth-sorted objects
+    torchAt.clear();
+    for (const t of torches) torchAt.set(idx(t.cx, t.cy), t);
     const list = [];
     for (let cy = y0; cy <= y1; cy++) for (let cx = x0; cx <= x1; cx++) {
       const i = idx(cx, cy);
-      if (grid[i] === WALL) list.push({ y: cy * T + T, k: 0, cx, cy, torch: torchSet.has(i) });
+      if (grid[i] === WALL) list.push({ y: cy * T + T, f: () => drawWall(cx, cy, torchAt.get(i)) });
     }
-    for (const d of doors) list.push({ y: d.cy * T + T, k: 1, o: d });
-    for (const n of npcs) list.push({ y: n.y + 21, k: 2, o: n });
-    for (const m of memories) if (!m.taken) list.push({ y: m.y + 1, k: 3, o: m });
-    list.push({ y: chest.y + 27, k: 4 });
-    list.push({ y: player.y + player.h, k: 5 });
+    for (const d of doors) list.push({ y: d.cy * T + T, f: () => drawDoor(d) });
+    for (const o of props) list.push({ y: o.y + 18, f: () => drawProp(o) });
+    for (const n of npcs) list.push({ y: n.y + 21, f: () => drawNpc(n) });
+    for (const e of enemies) if (e.alive) list.push({ y: e.y + 14, f: () => drawEnemy(e) });
+    for (const y of yarns) if (!y.caught) list.push({ y: y.y + 11, f: () => drawYarn(y) });
+    for (const m of memories) if (!m.taken) list.push({ y: m.y + 1, f: () => drawMemory(m) });
+    for (const s of stars) list.push({ y: s.y + 1, f: () => drawStar(s) });
+    for (const b of berries) list.push({ y: b.y + 1, f: () => drawBerry(b) });
+    list.push({ y: chest.y + 27, f: drawChest });
+    list.push({ y: player.y + player.h, f: drawPlayer });
     list.sort((a, b) => a.y - b.y);
-    for (const d of list) {
-      if (d.k === 0) drawWall(d.cx, d.cy, d.torch);
-      else if (d.k === 1) drawDoor(d.o);
-      else if (d.k === 2) drawNpc(d.o);
-      else if (d.k === 3) drawMemory(d.o);
-      else if (d.k === 4) drawChest();
-      else drawPlayer();
+    for (const d of list) d.f();
+
+    for (const f of fireflies) {
+      if (f.caught) continue;
+      const a = 0.6 + Math.sin(time * 6 + f.ph) * 0.4;
+      ctx.fillStyle = `rgba(232,255,138,${a})`;
+      ctx.beginPath(); ctx.arc(f.x, f.y - 20, 4, 0, Math.PI * 2); ctx.fill();
     }
 
     for (const q of particles) {
@@ -953,8 +1396,12 @@ const CONFIG = {
       ctx.fillRect(q.x - q.size / 2, q.y - q.size / 2 - 10, q.size, q.size);
     }
     ctx.globalAlpha = 1;
-    ctx.font = '24px system-ui'; ctx.textAlign = 'center';
-    for (const t of texts) { ctx.globalAlpha = clamp(t.life, 0, 1); ctx.fillText(t.text, t.x, t.y); }
+    ctx.font = 'bold 18px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center';
+    for (const t of texts) {
+      ctx.globalAlpha = clamp(t.life, 0, 1);
+      ctx.fillStyle = t.color; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.lineWidth = 3;
+      ctx.strokeText(t.text, t.x, t.y); ctx.fillText(t.text, t.x, t.y);
+    }
     ctx.globalAlpha = 1;
 
     if (focus) {
@@ -966,7 +1413,13 @@ const CONFIG = {
 
     drawFog(ox, oy);
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    if (state === 'play') drawHud();
+    if (flash > 0) { ctx.fillStyle = `rgba(255,60,100,${flash * 0.5})`; ctx.fillRect(0, 0, VW, VH); }
+    if (state === 'play' || state === 'faint') drawHud();
+    if (state === 'faint') {
+      ctx.fillStyle = `rgba(10,5,20,${Math.min(1, faintT / 0.8)})`; ctx.fillRect(0, 0, VW, VH);
+      ctx.fillStyle = '#ff8fb8'; ctx.font = '600 26px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('Oof... you fainted!', VW / 2, VH / 2);
+    }
   }
 
   function drawFog(ox, oy) {
@@ -987,20 +1440,29 @@ const CONFIG = {
       fctx.fillStyle = g;
       fctx.fillRect(x - R, y - R, R * 2, R * 2);
     };
-    cut(player.x, player.y, 250, 1);
-    for (const L of lights) cut(L.x, L.y, L.r * (L.flicker ? 1 + Math.sin(time * 9 + L.x) * 0.04 : 1), L.a);
+    const warm = [];
+    const libDark = curRoom === LIBRARY && npcs.some(n => n.ch.type === 'lanterns' && n.ch.state !== 'done');
+    cut(player.x, player.y, libDark ? 160 : 250, 1);
+    for (const t of torches) if (t.lit) { const x = t.cx * T + T / 2, y = t.cy * T + T + 12; cut(x, y, 210 * (1 + Math.sin(time * 9 + x) * 0.04), 0.9); warm.push([x, y]); }
+    for (const [cx, cy] of CANDLES) { const x = cx * T + T / 2, y = cy * T + T / 2; cut(x, y, 150, 0.8); warm.push([x, y]); }
+    for (const o of props) if (o.type === 'brazier' && o.lit) { cut(o.x, o.y - 20, 240 * (1 + Math.sin(time * 9 + o.x) * 0.05), 0.95); warm.push([o.x, o.y]); }
+    const room = (r, rad, a) => cut((r.r[0] + r.r[2]) / 2 * T + T / 2, (r.r[1] + r.r[3]) / 2 * T + T / 2, rad, a);
+    room(ROOMS[GARDEN], 360, 0.45);
+    room(ROOMS[HEART], 380, 0.5);
     for (const m of memories) if (!m.taken) cut(m.x, m.y - 30, 90, 0.7);
     for (const n of npcs) cut(n.x, n.y, 110, 0.5);
+    for (const f of fireflies) if (!f.caught) cut(f.x, f.y - 20, 55, 0.7);
+    for (const st of stars) cut(st.x, st.y - 26, 80, 0.8);
+    for (const e of enemies) if (e.alive && e.type === 'wisp') cut(e.x, e.y - 26, 70, 0.6);
     cut(chest.x, chest.y, chest.opened ? 320 : 140, 0.8);
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.drawImage(fog, 0, 0);
 
-    // Warm glow on top of torches
+    // Warm glow on top of torches and candles
     ctx.globalCompositeOperation = 'lighter';
-    for (const L of lights) {
-      if (!L.warm) continue;
-      const x = (L.x * zoom + ox) * DPR, y = (L.y * zoom + oy) * DPR, R = 120 * s;
+    for (const [wx, wy] of warm) {
+      const x = (wx * zoom + ox) * DPR, y = (wy * zoom + oy) * DPR, R = 120 * s;
       if (x < -R || y < -R || x > cv.width + R || y > cv.height + R) continue;
       const g = ctx.createRadialGradient(x, y, 0, x, y, R);
       g.addColorStop(0, 'rgba(255,140,60,.13)');
@@ -1012,25 +1474,63 @@ const CONFIG = {
 
   function drawHud() {
     const solved = doors.filter(d => d.solved).length;
-    ctx.fillStyle = 'rgba(20,16,34,.75)'; rr(12, 12, 150, 62, 12); ctx.fill();
+    ctx.fillStyle = 'rgba(20,16,34,.75)'; rr(12, 12, 150, 92, 12); ctx.fill();
     ctx.textAlign = 'left'; ctx.font = '600 17px Fredoka, system-ui, sans-serif';
-    ctx.fillStyle = '#ff8fb8'; ctx.fillText(`💗  ${found} / ${memories.length}`, 24, 37);
-    ctx.fillStyle = '#ffd166'; ctx.fillText(`🗝️  ${solved} / ${doors.length}`, 24, 63);
-
-    if (isTouch && joy.id !== null) {
-      ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(joy.ox, joy.oy, 50, 0, Math.PI * 2); ctx.stroke();
-      const dx = joy.x - joy.ox, dy = joy.y - joy.oy, d = Math.hypot(dx, dy), m = Math.min(d, 50) / (d || 1);
-      ctx.fillStyle = 'rgba(255,255,255,.35)';
-      ctx.beginPath(); ctx.arc(joy.ox + dx * m, joy.oy + dy * m, 22, 0, Math.PI * 2); ctx.fill();
+    for (let i = 0; i < MAX_HP; i++) {
+      ctx.fillStyle = i < player.hp ? '#ff4d6d' : 'rgba(255,255,255,.15)';
+      heartPath(32 + i * 26, 22, 20); ctx.fill();
     }
+    ctx.fillStyle = '#ff8fb8'; ctx.fillText(`💗  ${found} / ${memories.length}`, 24, 66);
+    ctx.fillStyle = '#ffd166'; ctx.fillText(`🗝️  ${solved} / ${doors.length}`, 24, 92);
+
+    // Active challenge tracker
+    const active = npcs.find(n => n.ch.state === 'active');
+    if (active) {
+      const def = CHALLENGES[active.ch.type];
+      let msg = `${def.icon} ${def.label}  ${progress(active)} / ${def.goal}`;
+      if (active.ch.type === 'stars') msg += `   ⏱ ${Math.ceil(Math.max(0, active.ch.t))}s`;
+      ctx.font = '600 18px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center';
+      const w = ctx.measureText(msg).width + 30;
+      ctx.fillStyle = 'rgba(20,16,34,.8)'; rr(VW / 2 - w / 2, 14, w, 36, 12); ctx.fill();
+      ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.fillText(msg, VW / 2, 38);
+    }
+
+    if (banner.t > 0) {
+      ctx.globalAlpha = clamp(banner.t, 0, 1);
+      ctx.font = '700 32px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center';
+      ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 5;
+      ctx.strokeText(banner.text, VW / 2, VH * 0.26);
+      ctx.fillStyle = '#fff'; ctx.fillText(banner.text, VW / 2, VH * 0.26);
+      ctx.globalAlpha = 1;
+    }
+
+    if (isTouch) {
+      if (joy.id !== null) {
+        ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(joy.ox, joy.oy, 50, 0, Math.PI * 2); ctx.stroke();
+        const dx = joy.x - joy.ox, dy = joy.y - joy.oy, d = Math.hypot(dx, dy), m = Math.min(d, 50) / (d || 1);
+        ctx.fillStyle = 'rgba(255,255,255,.35)';
+        ctx.beginPath(); ctx.arc(joy.ox + dx * m, joy.oy + dy * m, 22, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = focus ? 'rgba(255,143,184,.4)' : 'rgba(255,255,255,.12)';
+      ctx.beginPath(); ctx.arc(VW - 70, VH - 80, 40, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = '600 14px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(focus ? 'TALK' : 'DASH', VW - 70, VH - 75);
+    }
+
+    let hint = '';
     if (focus && !dlg.active) {
       const verb = focus.type === 'chest' ? 'open the chest' : 'talk';
-      const msg = isTouch ? `Tap the right side to ${verb}` : `Press E to ${verb}`;
+      hint = isTouch ? `Tap the right side to ${verb}` : `Press E to ${verb}`;
+    } else if (active && active.ch.type === 'dummies') {
+      hint = isTouch ? 'Run at a dummy and tap the right side to dash!' : 'Run at a dummy and press SPACE to dash!';
+    }
+    if (hint && !dlg.active) {
       ctx.font = '600 16px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center';
-      const w = ctx.measureText(msg).width + 28;
+      const w = ctx.measureText(hint).width + 28;
       ctx.fillStyle = 'rgba(20,16,34,.8)'; rr(VW / 2 - w / 2, VH - 52, w, 34, 10); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.fillText(msg, VW / 2, VH - 29);
+      ctx.fillStyle = '#fff'; ctx.fillText(hint, VW / 2, VH - 29);
     }
   }
 
@@ -1054,10 +1554,11 @@ const CONFIG = {
       <div class="for">a little adventure for ${esc(CONFIG.herName)}</div>
       <div class="keys">
         <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>Walk around</span>
+        <span><kbd>Space</kbd></span><span>Dash (pops slimes!)</span>
         <span><kbd>E</kbd></span><span>Talk / open</span>
         <span><kbd>M</kbd></span><span>Sound on/off</span>
       </div>
-      <p>On a phone: drag on the left to walk, tap on the right to talk.</p>
+      <p>On a phone: drag on the left to walk, tap on the right to dash or talk.</p>
       <button class="btn" id="go">Start the adventure 💗</button>
     </div>`);
     $('go').onclick = startGame;

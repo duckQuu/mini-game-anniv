@@ -1,11 +1,12 @@
 # The Dungeon of Us
 
-A little anniversary dungeon adventure that runs in the browser. Explore torch-lit rooms, answer each guardian's question to unlock their door, collect memory hearts, and open the treasure chest at the end.
+A little anniversary dungeon adventure that runs in the browser. Explore torch-lit rooms, dodge slimes, beat each guardian's mini challenge, answer their question to unlock the door, collect memory hearts, and open the treasure chest at the end.
 
 - **WASD / arrow keys**: walk
-- **E / Space / Enter**: talk, answer, open
+- **Space**: dash (smashes pots and dummies, pops slimes)
+- **E / Enter**: talk, answer, open
 - **M**: sound on/off
-- Phone: drag on the left half to walk, tap the right half to talk
+- Phone: drag on the left half to walk, tap the right half to dash or talk
 
 ## Making it yours
 

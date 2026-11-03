@@ -203,7 +203,7 @@ const CONFIG = {
   #finale { position: fixed; inset: 0; }
   #overlay.clear { background: transparent; backdrop-filter: none; }
   #finaleBtn {
-    position: fixed; left: 50%; bottom: 9vh; transform: translateX(-50%); margin: 0;
+    position: fixed; left: 50%; bottom: 3vh; transform: translateX(-50%); margin: 0;
     animation: pop .6s ease-out;
   }
 
@@ -1602,9 +1602,8 @@ const CONFIG = {
     $('again').onclick = () => { endFinale(); showTitle(); };
   }
 
-  // ---------- Finale: boom, fireworks, then a field of flowers ----------
+  // ---------- Finale: boom, fireworks, then a pink bouquet ----------
   const fc = $('finale'), fx = fc.getContext('2d');
-  const FLOWER_COLORS = [['#ff6f9f', '#ffd166'], ['#ff4d6d', '#ffe08a'], ['#ffffff', '#ffd166'], ['#c9a7ff', '#fff3c4'], ['#ffb3c7', '#ff6f9f'], ['#ffd166', '#c97a33']];
   let fin = null;
 
   function boomSound() {
@@ -1622,25 +1621,58 @@ const CONFIG = {
     sfx(140, 1.3, 'sine', 0.35, -100);
   }
 
-  function makeFlowers() {
-    const list = [];
-    const rows = [{ n: Math.ceil(VW / 55), scale: 0.75, hMin: 0.35, hMax: 0.6, dim: 0.65, delay: 0.6 },
-                  { n: Math.ceil(VW / 70), scale: 1.05, hMin: 0.18, hMax: 0.42, dim: 1, delay: 1.1 }];
-    for (const r of rows) {
-      for (let i = 0; i < r.n; i++) {
-        const [petal, mid] = pick(FLOWER_COLORS);
-        list.push({
-          x: (i + rand(0.1, 0.9)) / r.n * VW,
-          h: rand(r.hMin, r.hMax) * VH,
-          delay: r.delay + rand(0, 1.4) + Math.abs(i / r.n - 0.5) * 0.8,
-          size: rand(16, 26) * r.scale * Math.max(0.8, Math.min(1.3, VW / 900)),
-          petals: 5 + ((Math.random() * 4) | 0),
-          type: pick(['daisy', 'daisy', 'round', 'tulip']),
-          petal, mid, dim: r.dim, ph: rand(0, 6), lean: rand(-20, 20),
-        });
-      }
+  const PINKS = ['#ff6f9f', '#ff8fb8', '#ffb3c7', '#e5487a', '#ffc8d9', '#f7559a'];
+  const ACCENTS = ['#fff4f7', '#ffd1b8', '#e6ccff'];
+  const NOTES = [523, 587, 659, 784, 880, 1046, 1175, 1318, 1568];
+
+  function shade(hex, amt) {
+    const n = parseInt(hex.slice(1), 16);
+    const f = c => clamp(c + amt, 0, 255) | 0;
+    return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`;
+  }
+
+  // Lays out the bouquet: wrap, leaves, flowers (outside in, hero rose last), baby's breath.
+  function makeBouquet() {
+    const S = Math.min(VW / 560, VH / 760, 1.25);
+    const cx = VW / 2, cy = VH * 0.44;
+    const B = { S, cx, cy, tie: { x: cx, y: cy + 200 * S }, tip: { x: cx, y: cy + 285 * S }, rx: 175 * S, ry: 118 * S };
+
+    const N = 24;
+    const spots = [];
+    for (let i = 1; i <= N; i++) {
+      const r = Math.sqrt(i / N), a = i * 2.39996;
+      let x = Math.cos(a) * r, y = Math.sin(a) * r;
+      if (y > 0.35) y = 0.35 + (y - 0.35) * 0.4; // flatter bottom so it sits in the wrap
+      spots.push({ x: cx + x * B.rx, y: cy + y * B.ry, r });
     }
-    return list;
+    spots.sort((a, b) => b.r - a.r);
+    const types = ['rose', 'rose', 'peony', 'rose', 'peony', 'tulip', 'rose', 'daisy'];
+    B.flowers = spots.map((p, i) => {
+      const type = types[i % types.length];
+      return {
+        ...p, type, rot: rand(0, 6),
+        size: (type === 'daisy' ? 26 : 38 + (1 - p.r) * 12) * S * rand(0.9, 1.1),
+        c: type === 'daisy' ? '#ffffff' : Math.random() < 0.85 ? pick(PINKS) : pick(ACCENTS),
+        t0: 1.8 + i * 0.13,
+      };
+    });
+    B.flowers.push({ x: cx, y: cy - 6 * S, r: 0, type: 'rose', rot: 0.5, size: 60 * S, c: '#ff5c93', t0: 1.8 + N * 0.13 + 0.35, hero: true });
+    B.done = B.flowers[B.flowers.length - 1].t0 + 0.5;
+    // draw from top to bottom so the lower (nearer) blooms overlap
+    B.order = [...B.flowers].sort((a, b) => a.y - b.y);
+
+    B.leaves = [];
+    for (let i = 0; i < 11; i++) {
+      const a = Math.PI + 0.15 + i / 10 * (Math.PI - 0.3);
+      B.leaves.push({ a, x: cx + Math.cos(a) * B.rx * 1.05, y: cy + Math.sin(a) * B.ry * 1.1, len: rand(34, 52) * S, t0: 1.3 + Math.abs(i - 5) * 0.06, euc: i % 3 === 0 });
+    }
+    B.breath = [];
+    for (let i = 0; i < 16; i++) {
+      const a = rand(0, Math.PI * 2), r = rand(0.75, 1.08);
+      B.breath.push({ x: cx + Math.cos(a) * B.rx * r, y: cy + Math.min(Math.sin(a), 0.4) * B.ry * r, t0: 3.2 + i * 0.1, dots: Array.from({ length: 6 }, () => [rand(-9, 9) * S, rand(-9, 9) * S]) });
+    }
+    B.sparkles = Array.from({ length: 22 }, () => ({ x: cx + rand(-1.5, 1.5) * B.rx, y: cy + rand(-1.6, 1.3) * B.ry, ph: rand(0, 6), s: rand(4, 9) * S }));
+    return B;
   }
 
   function startFinale() {
@@ -1649,9 +1681,9 @@ const CONFIG = {
     fc.style.width = VW + 'px'; fc.style.height = VH + 'px';
     fc.classList.remove('hidden');
     fin = {
-      t: 0, sparks: [], petals: [], nextBurst: 0, bursts: 0, btn: false,
-      flowers: makeFlowers(),
-      stars: Array.from({ length: 70 }, () => ({ x: rand(0, VW), y: rand(0, VH * 0.7), r: rand(0.5, 1.8), ph: rand(0, 6) })),
+      t: 0, sparks: [], petals: [], lanterns: [], nextBurst: 0, bursts: 0, btn: false, popped: 0, tied: false, heroPop: false,
+      B: makeBouquet(),
+      stars: Array.from({ length: 80 }, () => ({ x: rand(0, VW), y: rand(0, VH * 0.75), r: rand(0.5, 1.8), ph: rand(0, 6) })),
     };
     boomSound();
     firework(VW / 2, VH * 0.45, 90);
@@ -1666,11 +1698,19 @@ const CONFIG = {
   }
   $('finaleBtn').onclick = () => { initAudio(); showLetter(); };
 
-  function firework(x, y, n = 60) {
-    const [c1, c2] = pick(FLOWER_COLORS);
+  function firework(x, y, n = 60, heart = false) {
+    const c1 = pick(PINKS), c2 = Math.random() < 0.5 ? '#ffd166' : '#ffffff';
     for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2, s = rand(120, 420);
-      fin.sparks.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(0.9, 1.6), max: 1.6, c: Math.random() < 0.5 ? c1 : c2 });
+      let vx, vy;
+      if (heart) {
+        const a = i / n * Math.PI * 2, s = rand(15, 17);
+        vx = 16 * Math.pow(Math.sin(a), 3) * s;
+        vy = -(13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a)) * s;
+      } else {
+        const a = Math.random() * Math.PI * 2, s = rand(120, 420);
+        vx = Math.cos(a) * s; vy = Math.sin(a) * s;
+      }
+      fin.sparks.push({ x, y, vx, vy, life: rand(1.1, 1.7), max: 1.7, c: Math.random() < 0.6 ? c1 : c2, heart });
     }
     if (fin.t > 0) sfx(rand(90, 140), 0.5, 'sawtooth', 0.04, -60);
   }
@@ -1678,80 +1718,236 @@ const CONFIG = {
   const easeOut = k => 1 - Math.pow(1 - k, 3);
   const easeBack = k => 1 + 2.7 * Math.pow(k - 1, 3) + 1.7 * Math.pow(k - 1, 2);
 
-  function drawFlower(f, t) {
-    const g = easeOut(clamp((t - f.delay) / 1.3, 0, 1));
-    if (g <= 0) return;
-    const b = easeBack(clamp((t - f.delay - 1.0) / 0.7, 0, 1));
-    const sway = Math.sin(time * 1.4 + f.ph) * 8 * g;
-    const tx = f.x + f.lean * g + sway, ty = VH - f.h * g;
-    fx.globalAlpha = f.dim;
-    // stem
-    fx.strokeStyle = '#3f9a3b'; fx.lineWidth = 4; fx.lineCap = 'round';
-    fx.beginPath(); fx.moveTo(f.x, VH + 4); fx.quadraticCurveTo(f.x + f.lean * 0.2, VH - f.h * g * 0.5, tx, ty); fx.stroke();
-    // leaves
-    fx.fillStyle = '#5fbf4f';
-    for (const [k, side] of [[0.3, -1], [0.55, 1]]) {
-      if (g < k + 0.1) continue;
-      const lx = f.x + (tx - f.x) * k * k, ly = VH - f.h * g * k;
-      fx.beginPath(); fx.ellipse(lx + side * 10, ly, 12, 5, side * -0.6, 0, Math.PI * 2); fx.fill();
-    }
-    if (b <= 0) { fx.globalAlpha = 1; return; }
-    const s = f.size * b;
-    fx.save(); fx.translate(tx, ty); fx.rotate(sway * 0.01);
-    if (f.type === 'tulip') {
-      fx.fillStyle = f.petal;
+  function fxHeart(x, y, s) {
+    fx.beginPath();
+    fx.moveTo(x, y + s * 0.3);
+    fx.bezierCurveTo(x, y, x - s / 2, y, x - s / 2, y + s * 0.3);
+    fx.bezierCurveTo(x - s / 2, y + s * 0.6, x, y + s * 0.8, x, y + s);
+    fx.bezierCurveTo(x, y + s * 0.8, x + s / 2, y + s * 0.6, x + s / 2, y + s * 0.3);
+    fx.bezierCurveTo(x + s / 2, y, x, y, x, y + s * 0.3);
+  }
+  function twinkle(x, y, s, a) {
+    fx.globalAlpha = a;
+    fx.fillStyle = '#fff';
+    fx.beginPath();
+    fx.moveTo(x, y - s); fx.quadraticCurveTo(x, y, x + s, y); fx.quadraticCurveTo(x, y, x, y + s);
+    fx.quadraticCurveTo(x, y, x - s, y); fx.quadraticCurveTo(x, y, x, y - s);
+    fx.fill();
+    fx.globalAlpha = 1;
+  }
+
+  function drawBloom(f, r) {
+    fx.save();
+    fx.rotate(f.rot + Math.sin(time * 1.2 + f.rot) * 0.05);
+    fx.fillStyle = 'rgba(80,10,40,.18)';
+    fx.beginPath(); fx.arc(2, 4, r * 0.95, 0, Math.PI * 2); fx.fill();
+    if (f.type === 'rose') {
+      fx.fillStyle = shade(f.c, -30);
+      for (let i = 0; i < 5; i++) { const a = i * 1.2566; fx.beginPath(); fx.arc(Math.cos(a) * r * 0.42, Math.sin(a) * r * 0.42, r * 0.58, 0, Math.PI * 2); fx.fill(); }
+      fx.fillStyle = f.c; fx.beginPath(); fx.arc(0, 0, r * 0.72, 0, Math.PI * 2); fx.fill();
+      fx.fillStyle = shade(f.c, 18); fx.beginPath(); fx.arc(r * 0.04, -r * 0.02, r * 0.46, 0, Math.PI * 2); fx.fill();
+      fx.strokeStyle = shade(f.c, -45); fx.lineWidth = Math.max(1.5, r * 0.07); fx.lineCap = 'round';
+      fx.beginPath(); fx.arc(0, 0, r * 0.55, 0.3, 0.3 + Math.PI * 1.1); fx.stroke();
+      fx.beginPath(); fx.arc(r * 0.05, 0, r * 0.34, 2.2, 2.2 + Math.PI * 1.25); fx.stroke();
+      fx.beginPath(); fx.arc(0, r * 0.03, r * 0.16, 4.1, 4.1 + Math.PI * 1.4); fx.stroke();
+    } else if (f.type === 'peony') {
+      fx.fillStyle = shade(f.c, -20);
+      for (let i = 0; i < 9; i++) { const a = i * 0.698; fx.beginPath(); fx.arc(Math.cos(a) * r * 0.55, Math.sin(a) * r * 0.55, r * 0.45, 0, Math.PI * 2); fx.fill(); }
+      fx.fillStyle = f.c;
+      for (let i = 0; i < 6; i++) { const a = i * 1.047 + 0.4; fx.beginPath(); fx.arc(Math.cos(a) * r * 0.28, Math.sin(a) * r * 0.28, r * 0.36, 0, Math.PI * 2); fx.fill(); }
+      fx.fillStyle = shade(f.c, 25);
+      for (let i = 0; i < 4; i++) { const a = i * 1.57; fx.beginPath(); fx.arc(Math.cos(a) * r * 0.1, Math.sin(a) * r * 0.1, r * 0.17, 0, Math.PI * 2); fx.fill(); }
+    } else if (f.type === 'tulip') {
+      fx.rotate(-f.rot);
+      fx.fillStyle = f.c;
       fx.beginPath();
-      fx.moveTo(-s * 0.8, -s * 0.2);
-      fx.quadraticCurveTo(-s * 0.9, s * 0.9, 0, s * 0.8);
-      fx.quadraticCurveTo(s * 0.9, s * 0.9, s * 0.8, -s * 0.2);
-      fx.lineTo(s * 0.45, -s * 0.9); fx.lineTo(s * 0.15, -s * 0.3); fx.lineTo(0, -s * 1.0); fx.lineTo(-s * 0.15, -s * 0.3); fx.lineTo(-s * 0.45, -s * 0.9);
+      fx.moveTo(-r * 0.75, -r * 0.2);
+      fx.quadraticCurveTo(-r * 0.85, r * 0.85, 0, r * 0.8);
+      fx.quadraticCurveTo(r * 0.85, r * 0.85, r * 0.75, -r * 0.2);
+      fx.lineTo(r * 0.42, -r * 0.85); fx.lineTo(r * 0.15, -r * 0.3); fx.lineTo(0, -r * 0.95); fx.lineTo(-r * 0.15, -r * 0.3); fx.lineTo(-r * 0.42, -r * 0.85);
       fx.closePath(); fx.fill();
-      fx.fillStyle = 'rgba(255,255,255,.25)';
-      fx.beginPath(); fx.ellipse(-s * 0.3, s * 0.1, s * 0.15, s * 0.4, 0.2, 0, Math.PI * 2); fx.fill();
+      fx.fillStyle = 'rgba(255,255,255,.3)';
+      fx.beginPath(); fx.ellipse(-r * 0.3, r * 0.1, r * 0.14, r * 0.38, 0.2, 0, Math.PI * 2); fx.fill();
     } else {
-      fx.fillStyle = f.petal;
-      for (let i = 0; i < f.petals; i++) {
-        const a = i / f.petals * Math.PI * 2 + f.ph + time * 0.2;
-        fx.beginPath();
-        if (f.type === 'daisy') fx.ellipse(Math.cos(a) * s * 0.6, Math.sin(a) * s * 0.6, s * 0.55, s * 0.24, a, 0, Math.PI * 2);
-        else fx.arc(Math.cos(a) * s * 0.55, Math.sin(a) * s * 0.55, s * 0.45, 0, Math.PI * 2);
-        fx.fill();
-      }
-      fx.fillStyle = f.mid;
-      fx.beginPath(); fx.arc(0, 0, s * 0.32, 0, Math.PI * 2); fx.fill();
+      fx.fillStyle = f.c;
+      for (let i = 0; i < 12; i++) { const a = i * 0.5236; fx.beginPath(); fx.ellipse(Math.cos(a) * r * 0.55, Math.sin(a) * r * 0.55, r * 0.5, r * 0.17, a, 0, Math.PI * 2); fx.fill(); }
+      fx.fillStyle = '#ffd166'; fx.beginPath(); fx.arc(0, 0, r * 0.3, 0, Math.PI * 2); fx.fill();
     }
     fx.restore();
-    fx.globalAlpha = 1;
+  }
+
+  function drawLeaf(l, k) {
+    const len = l.len * easeBack(k);
+    fx.save();
+    fx.translate(l.x, l.y); fx.rotate(l.a + Math.sin(time * 1.3 + l.a * 3) * 0.06);
+    if (l.euc) {
+      fx.strokeStyle = '#6f9f83'; fx.lineWidth = 2;
+      fx.beginPath(); fx.moveTo(-10, 0); fx.lineTo(len, 0); fx.stroke();
+      fx.fillStyle = '#9cc7a8';
+      for (let i = 0; i < 4; i++) { fx.beginPath(); fx.arc(len * (0.25 + i * 0.22), (i % 2 ? -1 : 1) * 6 * fin.B.S, 7 * fin.B.S * k, 0, Math.PI * 2); fx.fill(); }
+    } else {
+      fx.fillStyle = '#4fae5a';
+      fx.beginPath(); fx.moveTo(-10, 0); fx.quadraticCurveTo(len * 0.5, -len * 0.32, len, 0); fx.quadraticCurveTo(len * 0.5, len * 0.32, -10, 0); fx.fill();
+      fx.strokeStyle = '#2f7d3a'; fx.lineWidth = 1.5;
+      fx.beginPath(); fx.moveTo(-6, 0); fx.lineTo(len * 0.85, 0); fx.stroke();
+    }
+    fx.restore();
+  }
+
+  function drawBouquet(t) {
+    const B = fin.B, S = B.S, cx = B.cx, cy = B.cy;
+
+    // Wrap: back sheet fans out behind the flowers
+    const w = easeBack(clamp((t - 1.0) / 0.7, 0, 1));
+    if (w > 0) {
+      fx.save();
+      fx.translate(B.tip.x, B.tip.y); fx.scale(w, w); fx.translate(-B.tip.x, -B.tip.y);
+      fx.fillStyle = '#fde4ec';
+      fx.beginPath();
+      fx.moveTo(B.tip.x, B.tip.y);
+      fx.lineTo(cx - 225 * S, cy - 70 * S);
+      for (let i = 0; i <= 6; i++) {
+        const x = cx - 225 * S + i * (450 * S / 6), y = cy - 70 * S - (i % 2 ? 34 : 8) * S - Math.sin(i / 6 * Math.PI) * 40 * S;
+        fx.lineTo(x, y);
+      }
+      fx.closePath(); fx.fill();
+      fx.fillStyle = 'rgba(229,72,122,.12)';
+      fx.beginPath(); fx.moveTo(B.tip.x, B.tip.y); fx.lineTo(cx - 225 * S, cy - 70 * S); fx.lineTo(cx - 110 * S, cy - 120 * S); fx.closePath(); fx.fill();
+      fx.restore();
+    }
+
+    for (const l of B.leaves) { const k = clamp((t - l.t0) / 0.5, 0, 1); if (k > 0) drawLeaf(l, k); }
+
+    // Stems from the tie point to each bloom as it flies in
+    fx.strokeStyle = '#3f8f45'; fx.lineWidth = 3 * S;
+    for (const f of B.flowers) {
+      const k = clamp((t - f.t0) / 0.55, 0, 1);
+      if (k <= 0) continue;
+      const e = easeOut(k);
+      f.px = B.tie.x + (f.x - B.tie.x) * e; f.py = B.tie.y + (f.y - B.tie.y) * e;
+      fx.beginPath(); fx.moveTo(B.tie.x, B.tie.y); fx.lineTo(f.px, f.py); fx.stroke();
+    }
+
+    for (const f of B.order) {
+      const k = clamp((t - f.t0) / 0.55, 0, 1);
+      if (k <= 0) continue;
+      fx.save(); fx.translate(f.px, f.py);
+      drawBloom(f, f.size * easeBack(k));
+      fx.restore();
+    }
+
+    for (const b of B.breath) {
+      const k = clamp((t - b.t0) / 0.4, 0, 1);
+      if (k <= 0) continue;
+      fx.fillStyle = '#ffffff';
+      for (const [dx, dy] of b.dots) { fx.beginPath(); fx.arc(b.x + dx, b.y + dy, 2.6 * S * k, 0, Math.PI * 2); fx.fill(); }
+    }
+
+    // Front sheet hides the stems
+    if (w > 0) {
+      fx.save();
+      fx.translate(B.tip.x, B.tip.y); fx.scale(w, w); fx.translate(-B.tip.x, -B.tip.y);
+      const top = cy + 85 * S;
+      const grad = fx.createLinearGradient(cx - 160 * S, 0, cx + 160 * S, 0);
+      grad.addColorStop(0, '#ff8fb8'); grad.addColorStop(0.5, '#ffb3cf'); grad.addColorStop(1, '#f06a9f');
+      fx.fillStyle = grad;
+      fx.beginPath();
+      fx.moveTo(cx - 165 * S, top);
+      for (let i = 1; i <= 8; i++) fx.quadraticCurveTo(cx - 165 * S + (i - 0.5) * 41.25 * S, top + 16 * S, cx - 165 * S + i * 41.25 * S, top);
+      fx.lineTo(B.tip.x + 14 * S, B.tip.y); fx.lineTo(B.tip.x - 14 * S, B.tip.y);
+      fx.closePath(); fx.fill();
+      fx.strokeStyle = 'rgba(255,255,255,.35)'; fx.lineWidth = 2;
+      for (let i = -2; i <= 2; i++) { fx.beginPath(); fx.moveTo(cx + i * 55 * S, top + 10 * S); fx.lineTo(B.tip.x + i * 5 * S, B.tip.y - 6 * S); fx.stroke(); }
+      fx.restore();
+    }
+
+    // Ribbon bow
+    const rb = clamp((t - B.done) / 0.6, 0, 1);
+    if (rb > 0) {
+      const s = easeBack(rb) * S, x = B.tie.x, y = B.tie.y;
+      fx.save(); fx.translate(x, y); fx.scale(s, s);
+      fx.fillStyle = '#d61f5c';
+      fx.beginPath(); fx.moveTo(-6, 6); fx.quadraticCurveTo(-26, 50, -34, 78); fx.lineTo(-20, 72); fx.lineTo(-12, 84); fx.quadraticCurveTo(-6, 40, 4, 8); fx.fill();
+      fx.beginPath(); fx.moveTo(6, 6); fx.quadraticCurveTo(24, 46, 30, 80); fx.lineTo(18, 72); fx.lineTo(8, 82); fx.quadraticCurveTo(4, 40, -4, 8); fx.fill();
+      fx.fillStyle = '#ff3d7f';
+      for (const sd of [-1, 1]) { fx.beginPath(); fx.ellipse(sd * 30, -4, 32, 18, sd * -0.35, 0, Math.PI * 2); fx.fill(); }
+      fx.fillStyle = '#b5124a';
+      for (const sd of [-1, 1]) { fx.beginPath(); fx.ellipse(sd * 22, -2, 12, 7, sd * -0.35, 0, Math.PI * 2); fx.fill(); }
+      fx.fillStyle = 'rgba(255,255,255,.35)';
+      for (const sd of [-1, 1]) { fx.beginPath(); fx.ellipse(sd * 34, -12, 14, 4, sd * -0.35, 0, Math.PI * 2); fx.fill(); }
+      fx.fillStyle = '#ff3d7f'; fx.beginPath(); fx.arc(0, 0, 11, 0, Math.PI * 2); fx.fill();
+      fx.fillStyle = 'rgba(255,255,255,.4)'; fx.beginPath(); fx.arc(-3, -4, 4, 0, Math.PI * 2); fx.fill();
+      fx.restore();
+    }
+
+    if (t > B.done) {
+      for (const sp of B.sparkles) {
+        const a = Math.max(0, Math.sin(time * 2.2 + sp.ph));
+        twinkle(sp.x, sp.y, sp.s * (0.5 + a * 0.7), a * 0.95);
+      }
+    }
   }
 
   function drawFinale(dt) {
     if (!fin) return;
     fin.t += dt;
-    const t = fin.t;
+    const t = fin.t, B = fin.B;
     fx.setTransform(DPR, 0, 0, DPR, 0, 0);
 
-    // Night sky, warming up as the flowers bloom
-    const warm = clamp((t - 1.5) / 4, 0, 1);
+    // Sky warms from night to rosy dusk
+    const warm = clamp((t - 1.5) / 5, 0, 1);
     const sky = fx.createLinearGradient(0, 0, 0, VH);
-    sky.addColorStop(0, `rgb(${18 + warm * 30},${12 + warm * 10},${40 + warm * 20})`);
-    sky.addColorStop(1, `rgb(${60 + warm * 90},${26 + warm * 30},${70 + warm * 30})`);
+    sky.addColorStop(0, `rgb(${18 + warm * 40},${12 + warm * 8},${40 + warm * 30})`);
+    sky.addColorStop(0.6, `rgb(${50 + warm * 110},${22 + warm * 30},${70 + warm * 40})`);
+    sky.addColorStop(1, `rgb(${70 + warm * 170},${30 + warm * 90},${80 + warm * 60})`);
     fx.fillStyle = sky; fx.fillRect(0, 0, VW, VH);
     for (const s of fin.stars) {
-      fx.globalAlpha = 0.4 + Math.sin(time * 2 + s.ph) * 0.4;
+      fx.globalAlpha = (0.4 + Math.sin(time * 2 + s.ph) * 0.4) * (1 - warm * 0.5);
       fx.fillStyle = '#fff'; fx.beginPath(); fx.arc(s.x, s.y, s.r, 0, Math.PI * 2); fx.fill();
     }
     fx.globalAlpha = 1;
 
-    // More fireworks for the first few seconds, then every so often
+    // Slowly turning light rays and a glow behind the bouquet
+    const rays = clamp((t - 1.6) / 2, 0, 1);
+    if (rays > 0) {
+      fx.save(); fx.translate(B.cx, B.cy); fx.rotate(time * 0.08);
+      const R = Math.max(VW, VH);
+      for (let i = 0; i < 14; i++) {
+        fx.rotate(Math.PI * 2 / 14);
+        fx.fillStyle = `rgba(255,220,235,${0.05 * rays})`;
+        fx.beginPath(); fx.moveTo(0, 0); fx.lineTo(R, -R * 0.09); fx.lineTo(R, R * 0.09); fx.closePath(); fx.fill();
+      }
+      fx.restore();
+      const g = fx.createRadialGradient(B.cx, B.cy, 0, B.cx, B.cy, 320 * B.S);
+      g.addColorStop(0, `rgba(255,190,215,${0.5 * rays})`); g.addColorStop(1, 'rgba(255,190,215,0)');
+      fx.fillStyle = g; fx.fillRect(0, 0, VW, VH);
+    }
+
+    // Glowing heart lanterns drifting up
+    if (t > 4 && Math.random() < dt * 1.6) fin.lanterns.push({ x: rand(0, VW), y: VH + 40, vy: rand(25, 45), ph: rand(0, 6), s: rand(14, 26) });
+    for (const L of fin.lanterns) {
+      L.y -= L.vy * dt;
+      const x = L.x + Math.sin(time * 0.8 + L.ph) * 18;
+      const g = fx.createRadialGradient(x, L.y + L.s * 0.45, 0, x, L.y + L.s * 0.45, L.s * 1.8);
+      g.addColorStop(0, 'rgba(255,150,190,.45)'); g.addColorStop(1, 'rgba(255,150,190,0)');
+      fx.fillStyle = g; fx.fillRect(x - L.s * 2, L.y - L.s * 1.5, L.s * 4, L.s * 4);
+      fx.fillStyle = 'rgba(255,120,170,.75)'; fxHeart(x, L.y, L.s); fx.fill();
+      fx.fillStyle = 'rgba(255,240,200,.6)'; fxHeart(x, L.y + L.s * 0.25, L.s * 0.5); fx.fill();
+    }
+    fin.lanterns = fin.lanterns.filter(L => L.y > -60);
+
+    // Fireworks: a flurry after the boom, heart-shaped ones once the bouquet is tied
     fin.nextBurst -= dt;
-    if (fin.nextBurst <= 0) {
-      firework(rand(VW * 0.15, VW * 0.85), rand(VH * 0.12, VH * 0.45), fin.bursts < 6 ? 70 : 45);
+    if (fin.nextBurst <= 0 && (fin.bursts < 5 || t > B.done)) {
+      const heart = t > B.done;
+      firework(rand(VW * 0.12, VW * 0.88), rand(VH * 0.1, VH * 0.35), heart ? 70 : 60, heart);
       fin.bursts++;
-      fin.nextBurst = fin.bursts < 6 ? rand(0.25, 0.5) : rand(1.2, 2.4);
+      fin.nextBurst = fin.bursts < 5 ? rand(0.2, 0.4) : rand(1.4, 2.6);
     }
     fx.globalCompositeOperation = 'lighter';
     for (const p of fin.sparks) {
-      p.vx *= Math.exp(-1.6 * dt); p.vy = p.vy * Math.exp(-1.6 * dt) + 140 * dt;
+      const drag = p.heart ? 2.2 : 1.6;
+      p.vx *= Math.exp(-drag * dt); p.vy = p.vy * Math.exp(-drag * dt) + (p.heart ? 40 : 140) * dt;
       p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt;
       fx.globalAlpha = clamp(p.life / p.max, 0, 1);
       fx.fillStyle = p.c;
@@ -1761,12 +1957,28 @@ const CONFIG = {
     fx.globalCompositeOperation = 'source-over';
     fx.globalAlpha = 1;
 
-    // Flowers (back row first)
-    for (const f of fin.flowers) drawFlower(f, t);
+    drawBouquet(t);
 
-    // Falling petals
-    if (t > 2 && Math.random() < dt * 14) {
-      fin.petals.push({ x: rand(-20, VW + 20), y: -20, vy: rand(40, 90), ph: rand(0, 6), rot: rand(0, 6), vr: rand(-2, 2), c: pick(FLOWER_COLORS)[0], s: rand(5, 9) });
+    // Sounds as each bloom lands, and the ribbon
+    while (fin.popped < B.flowers.length && t > B.flowers[fin.popped].t0 + 0.3) {
+      const f = B.flowers[fin.popped];
+      sfx(NOTES[fin.popped % NOTES.length], 0.35, 'triangle', 0.035);
+      if (f.hero) {
+        chime([1046, 1318, 1568]);
+        for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2; fin.sparks.push({ x: f.x, y: f.y, vx: Math.cos(a) * 220, vy: Math.sin(a) * 220, life: 0.8, max: 0.8, c: '#ffe08a', heart: true }); }
+      }
+      fin.popped++;
+    }
+    if (!fin.tied && t > B.done + 0.2) {
+      fin.tied = true;
+      chime([784, 988, 1175, 1568]);
+      firework(VW * 0.25, VH * 0.2, 70, true);
+      firework(VW * 0.75, VH * 0.2, 70, true);
+    }
+
+    // Falling petals, mostly pink
+    if (t > 2 && Math.random() < dt * 16) {
+      fin.petals.push({ x: rand(-20, VW + 20), y: -20, vy: rand(40, 90), ph: rand(0, 6), rot: rand(0, 6), vr: rand(-2, 2), c: Math.random() < 0.85 ? pick(PINKS) : '#ffffff', s: rand(5, 9) });
     }
     for (const p of fin.petals) {
       p.y += p.vy * dt; p.rot += p.vr * dt;
@@ -1780,20 +1992,22 @@ const CONFIG = {
     fin.petals = fin.petals.filter(p => p.y < VH + 20);
 
     // Greeting
-    if (state === 'finale' && t > 3.2) {
-      const a = clamp((t - 3.2) / 1.2, 0, 1);
+    const gt = B.done + 0.5;
+    if (state === 'finale' && t > gt) {
+      const a = clamp((t - gt) / 1.2, 0, 1);
       fx.globalAlpha = a;
       fx.textAlign = 'center';
-      fx.font = `700 ${Math.min(52, VW / 14)}px Fredoka, system-ui, sans-serif`;
-      fx.strokeStyle = 'rgba(40,10,40,.6)'; fx.lineWidth = 6;
-      const y = VH * 0.22 + (1 - a) * 20;
-      const line1 = 'Happy Anniversary', line2 = fmt('{her}') + ' 💗';
-      fx.strokeText(line1, VW / 2, y); fx.fillStyle = '#fff'; fx.fillText(line1, VW / 2, y);
-      fx.font = `700 ${Math.min(64, VW / 11)}px Caveat, cursive`;
-      fx.strokeText(line2, VW / 2, y + Math.min(64, VW / 11)); fx.fillStyle = '#ffd166'; fx.fillText(line2, VW / 2, y + Math.min(64, VW / 11));
+      const s1 = Math.min(46, VW / 14), s2 = Math.min(60, VW / 10);
+      const y = Math.max(s1 + 10, B.cy - B.ry - 190 * B.S) + (1 - a) * 20;
+      fx.font = `700 ${s1}px Fredoka, system-ui, sans-serif`;
+      fx.strokeStyle = 'rgba(60,10,40,.55)'; fx.lineWidth = 6; fx.lineJoin = 'round';
+      fx.strokeText('Happy Anniversary', VW / 2, y); fx.fillStyle = '#fff'; fx.fillText('Happy Anniversary', VW / 2, y);
+      fx.font = `700 ${s2}px Caveat, cursive`;
+      const name = fmt('{her}') + ' 💗';
+      fx.strokeText(name, VW / 2, y + s2 * 0.95); fx.fillStyle = '#ffd166'; fx.fillText(name, VW / 2, y + s2 * 0.95);
       fx.globalAlpha = 1;
     }
-    if (!fin.btn && t > 5) { fin.btn = true; $('finaleBtn').classList.remove('hidden'); chime([784, 988, 1175, 1568]); }
+    if (!fin.btn && t > gt + 1.8) { fin.btn = true; $('finaleBtn').classList.remove('hidden'); }
 
     // The BOOM: white flash and shockwave
     if (t < 0.9) {

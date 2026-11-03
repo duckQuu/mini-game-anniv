@@ -200,6 +200,13 @@ const CONFIG = {
   .floaty { position: absolute; bottom: -40px; font-size: 26px; animation: rise linear infinite; pointer-events: none; }
   @keyframes rise { to { transform: translateY(-115vh) rotate(25deg); } }
 
+  #finale { position: fixed; inset: 0; }
+  #overlay.clear { background: transparent; backdrop-filter: none; }
+  #finaleBtn {
+    position: fixed; left: 50%; bottom: 9vh; transform: translateX(-50%); margin: 0;
+    animation: pop .6s ease-out;
+  }
+
   #mute {
     position: fixed; top: 12px; right: 12px; width: 40px; height: 40px; border-radius: 10px;
     background: rgba(29,24,48,.8); border: 2px solid var(--border); color: var(--text); font-size: 18px; cursor: pointer;
@@ -222,6 +229,8 @@ const CONFIG = {
     <div class="dlg-next" id="dlgNext">▼</div>
   </div>
 </div>
+<canvas id="finale" class="hidden"></canvas>
+<button class="btn hidden" id="finaleBtn">Open your letter 💌</button>
 <div id="overlay"></div>
 
 <script>
@@ -767,7 +776,8 @@ const CONFIG = {
     burst(chest.x, chest.y - 30, '#ff8fb8', 30, 220);
     chime([523, 659, 784, 1046, 1318]);
     shake = 8;
-    setTimeout(showLetter, 1500);
+    setTimeout(() => { shake = 14; sfx(60, 1.2, 'sine', 0.06, 30); }, 500);
+    setTimeout(startFinale, 1500);
   }
 
   function findFocus() {
@@ -1577,7 +1587,9 @@ const CONFIG = {
     const L = CONFIG.letter;
     const paras = L.paragraphs.map((t, i) => `<p style="animation-delay:${0.4 + i * 0.9}s">${esc(t)}</p>`).join('');
     const signDelay = 0.4 + L.paragraphs.length * 0.9;
-    showOverlay(`${floatingHearts(30)}<div class="letter">
+    $('finaleBtn').classList.add('hidden');
+    overlay.classList.add('clear');
+    showOverlay(`<div class="letter">
       <h2>${esc(L.title)}</h2>
       ${L.photo ? `<img src="${esc(L.photo)}" alt="">` : ''}
       <div class="body">${paras}</div>
@@ -1586,8 +1598,213 @@ const CONFIG = {
       <button class="btn alt" id="explore">Keep exploring</button>
       <button class="btn" id="again">Play again</button>
     </div>`);
-    $('explore').onclick = () => { hideOverlay(); state = 'play'; };
-    $('again').onclick = () => { hideOverlay(); showTitle(); };
+    $('explore').onclick = () => { endFinale(); state = 'play'; };
+    $('again').onclick = () => { endFinale(); showTitle(); };
+  }
+
+  // ---------- Finale: boom, fireworks, then a field of flowers ----------
+  const fc = $('finale'), fx = fc.getContext('2d');
+  const FLOWER_COLORS = [['#ff6f9f', '#ffd166'], ['#ff4d6d', '#ffe08a'], ['#ffffff', '#ffd166'], ['#c9a7ff', '#fff3c4'], ['#ffb3c7', '#ff6f9f'], ['#ffd166', '#c97a33']];
+  let fin = null;
+
+  function boomSound() {
+    if (!actx || muted) return;
+    const t = actx.currentTime;
+    const len = actx.sampleRate * 1.6;
+    const buf = actx.createBuffer(1, len, actx.sampleRate), data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+    const src = actx.createBufferSource(), lp = actx.createBiquadFilter(), g = actx.createGain();
+    src.buffer = buf; lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(1800, t); lp.frequency.exponentialRampToValueAtTime(80, t + 1.4);
+    g.gain.setValueAtTime(0.5, t);
+    src.connect(lp).connect(g).connect(actx.destination);
+    src.start(t);
+    sfx(140, 1.3, 'sine', 0.35, -100);
+  }
+
+  function makeFlowers() {
+    const list = [];
+    const rows = [{ n: Math.ceil(VW / 55), scale: 0.75, hMin: 0.35, hMax: 0.6, dim: 0.65, delay: 0.6 },
+                  { n: Math.ceil(VW / 70), scale: 1.05, hMin: 0.18, hMax: 0.42, dim: 1, delay: 1.1 }];
+    for (const r of rows) {
+      for (let i = 0; i < r.n; i++) {
+        const [petal, mid] = pick(FLOWER_COLORS);
+        list.push({
+          x: (i + rand(0.1, 0.9)) / r.n * VW,
+          h: rand(r.hMin, r.hMax) * VH,
+          delay: r.delay + rand(0, 1.4) + Math.abs(i / r.n - 0.5) * 0.8,
+          size: rand(16, 26) * r.scale * Math.max(0.8, Math.min(1.3, VW / 900)),
+          petals: 5 + ((Math.random() * 4) | 0),
+          type: pick(['daisy', 'daisy', 'round', 'tulip']),
+          petal, mid, dim: r.dim, ph: rand(0, 6), lean: rand(-20, 20),
+        });
+      }
+    }
+    return list;
+  }
+
+  function startFinale() {
+    state = 'finale';
+    fc.width = VW * DPR; fc.height = VH * DPR;
+    fc.style.width = VW + 'px'; fc.style.height = VH + 'px';
+    fc.classList.remove('hidden');
+    fin = {
+      t: 0, sparks: [], petals: [], nextBurst: 0, bursts: 0, btn: false,
+      flowers: makeFlowers(),
+      stars: Array.from({ length: 70 }, () => ({ x: rand(0, VW), y: rand(0, VH * 0.7), r: rand(0.5, 1.8), ph: rand(0, 6) })),
+    };
+    boomSound();
+    firework(VW / 2, VH * 0.45, 90);
+  }
+
+  function endFinale() {
+    fin = null;
+    fc.classList.add('hidden');
+    $('finaleBtn').classList.add('hidden');
+    overlay.classList.remove('clear');
+    hideOverlay();
+  }
+  $('finaleBtn').onclick = () => { initAudio(); showLetter(); };
+
+  function firework(x, y, n = 60) {
+    const [c1, c2] = pick(FLOWER_COLORS);
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, s = rand(120, 420);
+      fin.sparks.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(0.9, 1.6), max: 1.6, c: Math.random() < 0.5 ? c1 : c2 });
+    }
+    if (fin.t > 0) sfx(rand(90, 140), 0.5, 'sawtooth', 0.04, -60);
+  }
+
+  const easeOut = k => 1 - Math.pow(1 - k, 3);
+  const easeBack = k => 1 + 2.7 * Math.pow(k - 1, 3) + 1.7 * Math.pow(k - 1, 2);
+
+  function drawFlower(f, t) {
+    const g = easeOut(clamp((t - f.delay) / 1.3, 0, 1));
+    if (g <= 0) return;
+    const b = easeBack(clamp((t - f.delay - 1.0) / 0.7, 0, 1));
+    const sway = Math.sin(time * 1.4 + f.ph) * 8 * g;
+    const tx = f.x + f.lean * g + sway, ty = VH - f.h * g;
+    fx.globalAlpha = f.dim;
+    // stem
+    fx.strokeStyle = '#3f9a3b'; fx.lineWidth = 4; fx.lineCap = 'round';
+    fx.beginPath(); fx.moveTo(f.x, VH + 4); fx.quadraticCurveTo(f.x + f.lean * 0.2, VH - f.h * g * 0.5, tx, ty); fx.stroke();
+    // leaves
+    fx.fillStyle = '#5fbf4f';
+    for (const [k, side] of [[0.3, -1], [0.55, 1]]) {
+      if (g < k + 0.1) continue;
+      const lx = f.x + (tx - f.x) * k * k, ly = VH - f.h * g * k;
+      fx.beginPath(); fx.ellipse(lx + side * 10, ly, 12, 5, side * -0.6, 0, Math.PI * 2); fx.fill();
+    }
+    if (b <= 0) { fx.globalAlpha = 1; return; }
+    const s = f.size * b;
+    fx.save(); fx.translate(tx, ty); fx.rotate(sway * 0.01);
+    if (f.type === 'tulip') {
+      fx.fillStyle = f.petal;
+      fx.beginPath();
+      fx.moveTo(-s * 0.8, -s * 0.2);
+      fx.quadraticCurveTo(-s * 0.9, s * 0.9, 0, s * 0.8);
+      fx.quadraticCurveTo(s * 0.9, s * 0.9, s * 0.8, -s * 0.2);
+      fx.lineTo(s * 0.45, -s * 0.9); fx.lineTo(s * 0.15, -s * 0.3); fx.lineTo(0, -s * 1.0); fx.lineTo(-s * 0.15, -s * 0.3); fx.lineTo(-s * 0.45, -s * 0.9);
+      fx.closePath(); fx.fill();
+      fx.fillStyle = 'rgba(255,255,255,.25)';
+      fx.beginPath(); fx.ellipse(-s * 0.3, s * 0.1, s * 0.15, s * 0.4, 0.2, 0, Math.PI * 2); fx.fill();
+    } else {
+      fx.fillStyle = f.petal;
+      for (let i = 0; i < f.petals; i++) {
+        const a = i / f.petals * Math.PI * 2 + f.ph + time * 0.2;
+        fx.beginPath();
+        if (f.type === 'daisy') fx.ellipse(Math.cos(a) * s * 0.6, Math.sin(a) * s * 0.6, s * 0.55, s * 0.24, a, 0, Math.PI * 2);
+        else fx.arc(Math.cos(a) * s * 0.55, Math.sin(a) * s * 0.55, s * 0.45, 0, Math.PI * 2);
+        fx.fill();
+      }
+      fx.fillStyle = f.mid;
+      fx.beginPath(); fx.arc(0, 0, s * 0.32, 0, Math.PI * 2); fx.fill();
+    }
+    fx.restore();
+    fx.globalAlpha = 1;
+  }
+
+  function drawFinale(dt) {
+    if (!fin) return;
+    fin.t += dt;
+    const t = fin.t;
+    fx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+    // Night sky, warming up as the flowers bloom
+    const warm = clamp((t - 1.5) / 4, 0, 1);
+    const sky = fx.createLinearGradient(0, 0, 0, VH);
+    sky.addColorStop(0, `rgb(${18 + warm * 30},${12 + warm * 10},${40 + warm * 20})`);
+    sky.addColorStop(1, `rgb(${60 + warm * 90},${26 + warm * 30},${70 + warm * 30})`);
+    fx.fillStyle = sky; fx.fillRect(0, 0, VW, VH);
+    for (const s of fin.stars) {
+      fx.globalAlpha = 0.4 + Math.sin(time * 2 + s.ph) * 0.4;
+      fx.fillStyle = '#fff'; fx.beginPath(); fx.arc(s.x, s.y, s.r, 0, Math.PI * 2); fx.fill();
+    }
+    fx.globalAlpha = 1;
+
+    // More fireworks for the first few seconds, then every so often
+    fin.nextBurst -= dt;
+    if (fin.nextBurst <= 0) {
+      firework(rand(VW * 0.15, VW * 0.85), rand(VH * 0.12, VH * 0.45), fin.bursts < 6 ? 70 : 45);
+      fin.bursts++;
+      fin.nextBurst = fin.bursts < 6 ? rand(0.25, 0.5) : rand(1.2, 2.4);
+    }
+    fx.globalCompositeOperation = 'lighter';
+    for (const p of fin.sparks) {
+      p.vx *= Math.exp(-1.6 * dt); p.vy = p.vy * Math.exp(-1.6 * dt) + 140 * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt;
+      fx.globalAlpha = clamp(p.life / p.max, 0, 1);
+      fx.fillStyle = p.c;
+      fx.beginPath(); fx.arc(p.x, p.y, 2.4, 0, Math.PI * 2); fx.fill();
+    }
+    fin.sparks = fin.sparks.filter(p => p.life > 0);
+    fx.globalCompositeOperation = 'source-over';
+    fx.globalAlpha = 1;
+
+    // Flowers (back row first)
+    for (const f of fin.flowers) drawFlower(f, t);
+
+    // Falling petals
+    if (t > 2 && Math.random() < dt * 14) {
+      fin.petals.push({ x: rand(-20, VW + 20), y: -20, vy: rand(40, 90), ph: rand(0, 6), rot: rand(0, 6), vr: rand(-2, 2), c: pick(FLOWER_COLORS)[0], s: rand(5, 9) });
+    }
+    for (const p of fin.petals) {
+      p.y += p.vy * dt; p.rot += p.vr * dt;
+      const x = p.x + Math.sin(time * 1.5 + p.ph) * 30;
+      fx.save(); fx.translate(x, p.y); fx.rotate(p.rot);
+      fx.fillStyle = p.c; fx.globalAlpha = 0.9;
+      fx.beginPath(); fx.ellipse(0, 0, p.s, p.s * 0.55, 0, 0, Math.PI * 2); fx.fill();
+      fx.restore();
+    }
+    fx.globalAlpha = 1;
+    fin.petals = fin.petals.filter(p => p.y < VH + 20);
+
+    // Greeting
+    if (state === 'finale' && t > 3.2) {
+      const a = clamp((t - 3.2) / 1.2, 0, 1);
+      fx.globalAlpha = a;
+      fx.textAlign = 'center';
+      fx.font = `700 ${Math.min(52, VW / 14)}px Fredoka, system-ui, sans-serif`;
+      fx.strokeStyle = 'rgba(40,10,40,.6)'; fx.lineWidth = 6;
+      const y = VH * 0.22 + (1 - a) * 20;
+      const line1 = 'Happy Anniversary', line2 = fmt('{her}') + ' 💗';
+      fx.strokeText(line1, VW / 2, y); fx.fillStyle = '#fff'; fx.fillText(line1, VW / 2, y);
+      fx.font = `700 ${Math.min(64, VW / 11)}px Caveat, cursive`;
+      fx.strokeText(line2, VW / 2, y + Math.min(64, VW / 11)); fx.fillStyle = '#ffd166'; fx.fillText(line2, VW / 2, y + Math.min(64, VW / 11));
+      fx.globalAlpha = 1;
+    }
+    if (!fin.btn && t > 5) { fin.btn = true; $('finaleBtn').classList.remove('hidden'); chime([784, 988, 1175, 1568]); }
+
+    // The BOOM: white flash and shockwave
+    if (t < 0.9) {
+      fx.strokeStyle = `rgba(255,240,250,${1 - t / 0.9})`; fx.lineWidth = 30 * (1 - t / 0.9) + 2;
+      fx.beginPath(); fx.arc(VW / 2, VH * 0.45, t * Math.max(VW, VH) * 1.4, 0, Math.PI * 2); fx.stroke();
+      fx.fillStyle = `rgba(255,255,255,${Math.max(0, 1 - t / 0.5)})`; fx.fillRect(0, 0, VW, VH);
+    }
+    if (t < 0.6) {
+      const k = (1 - t / 0.6) * 18;
+      fc.style.transform = `translate(${rand(-k, k)}px,${rand(-k, k)}px)`;
+    } else fc.style.transform = '';
   }
 
   // ---------- Loop ----------
@@ -1596,7 +1813,7 @@ const CONFIG = {
     const dt = Math.min(0.033, (now - last) / 1000);
     last = now;
     update(dt);
-    render();
+    if (fin) drawFinale(dt); else render();
     requestAnimationFrame(frame);
   }
 

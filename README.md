@@ -5,6 +5,7 @@ A little anniversary dungeon adventure that runs in the browser. Explore torch-l
 - **WASD / arrow keys**: walk
 - **Space**: dash (smashes pots and dummies, pops slimes)
 - **E / Enter**: talk, answer, open
+- **C**: wardrobe (outfits, bags, shoes, hair, hats)
 - **M**: sound on/off
 - Phone: drag on the left half to walk, tap the right half to dash or talk
 

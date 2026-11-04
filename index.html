@@ -2211,39 +2211,57 @@ const CONFIG = {
     const cx = VW / 2, cy = VH * 0.44;
     const B = { S, cx, cy, tie: { x: cx, y: cy + 200 * S }, tip: { x: cx, y: cy + 285 * S }, rx: 175 * S, ry: 118 * S };
 
-    const N = 24;
+    B.rx = 190 * S; B.ry = 128 * S;
+    const N = 40;
     const spots = [];
     for (let i = 1; i <= N; i++) {
       const r = Math.sqrt(i / N), a = i * 2.39996;
       let x = Math.cos(a) * r, y = Math.sin(a) * r;
       if (y > 0.35) y = 0.35 + (y - 0.35) * 0.4; // flatter bottom so it sits in the wrap
+      y -= (1 - x * x) * 0.12; // domed top
       spots.push({ x: cx + x * B.rx, y: cy + y * B.ry, r });
     }
     spots.sort((a, b) => b.r - a.r);
-    const types = ['rose', 'rose', 'peony', 'rose', 'peony', 'tulip', 'rose', 'daisy'];
+    const types = ['rose', 'peony', 'rose', 'hydrangea', 'rose', 'peony', 'tulip', 'rose', 'daisy', 'rose'];
     B.flowers = spots.map((p, i) => {
       const type = types[i % types.length];
       return {
         ...p, type, rot: rand(0, 6),
-        size: (type === 'daisy' ? 26 : 38 + (1 - p.r) * 12) * S * rand(0.9, 1.1),
+        size: (type === 'daisy' ? 26 : type === 'hydrangea' ? 34 : 36 + (1 - p.r) * 12) * S * rand(0.9, 1.1),
         c: type === 'daisy' ? '#ffffff' : Math.random() < 0.85 ? pick(PINKS) : pick(ACCENTS),
-        t0: 1.8 + i * 0.13,
+        t0: 1.8 + i * 0.075,
       };
     });
-    B.flowers.push({ x: cx, y: cy - 6 * S, r: 0, type: 'rose', rot: 0.5, size: 60 * S, c: '#ff5c93', t0: 1.8 + N * 0.13 + 0.35, hero: true });
+    // A back row peeking out over the top
+    for (let i = 0; i < 13; i++) {
+      const a = Math.PI * (1.08 + i / 12 * 0.84);
+      const type = i % 3 === 1 ? 'tulip' : i % 3 === 2 ? 'hydrangea' : 'rose';
+      B.flowers.push({ x: cx + Math.cos(a) * B.rx * 0.98, y: cy + Math.sin(a) * B.ry * 1.12 - 6 * S, r: 1.1, type, rot: rand(0, 6),
+        size: (type === 'hydrangea' ? 28 : 30) * S * rand(0.9, 1.1), c: Math.random() < 0.85 ? pick(PINKS) : pick(ACCENTS), t0: 1.55 + i * 0.05 });
+    }
+    // Little buds and florets tucked into the gaps
+    for (let i = 0; i < 26; i++) {
+      const a = rand(0, Math.PI * 2), r = Math.sqrt(rand(0.05, 1)) * 1.02;
+      const type = i % 2 ? 'bud' : 'floret';
+      B.flowers.push({ x: cx + Math.cos(a) * B.rx * r, y: cy + Math.min(Math.sin(a), 0.45) * B.ry * r - (1 - Math.cos(a) ** 2) * 0.1 * B.ry, r, type, rot: rand(-0.6, 0.6),
+        size: rand(13, 18) * S, c: type === 'floret' ? pick(['#ffffff', '#ffe1ea', '#ffc8d9']) : pick(PINKS), t0: 3.4 + i * 0.03, quiet: true });
+    }
+    B.flowers.sort((a, b) => a.t0 - b.t0);
+    const last = B.flowers[B.flowers.length - 1].t0;
+    B.flowers.push({ x: cx, y: cy - 14 * S, r: 0, type: 'rose', rot: 0.5, size: 62 * S, c: '#ff5c93', t0: last + 0.4, hero: true });
     B.done = B.flowers[B.flowers.length - 1].t0 + 0.5;
     // draw from top to bottom so the lower (nearer) blooms overlap
     B.order = [...B.flowers].sort((a, b) => a.y - b.y);
 
     B.leaves = [];
-    for (let i = 0; i < 11; i++) {
-      const a = Math.PI + 0.15 + i / 10 * (Math.PI - 0.3);
-      B.leaves.push({ a, x: cx + Math.cos(a) * B.rx * 1.05, y: cy + Math.sin(a) * B.ry * 1.1, len: rand(34, 52) * S, t0: 1.3 + Math.abs(i - 5) * 0.06, euc: i % 3 === 0 });
+    for (let i = 0; i < 15; i++) {
+      const a = Math.PI + 0.05 + i / 14 * (Math.PI - 0.1);
+      B.leaves.push({ a, x: cx + Math.cos(a) * B.rx * 1.08, y: cy + Math.sin(a) * B.ry * 1.16, len: rand(34, 52) * S, t0: 1.3 + Math.abs(i - 7) * 0.05, euc: i % 3 === 0 });
     }
     B.breath = [];
-    for (let i = 0; i < 16; i++) {
-      const a = rand(0, Math.PI * 2), r = rand(0.75, 1.08);
-      B.breath.push({ x: cx + Math.cos(a) * B.rx * r, y: cy + Math.min(Math.sin(a), 0.4) * B.ry * r, t0: 3.2 + i * 0.1, dots: Array.from({ length: 6 }, () => [rand(-9, 9) * S, rand(-9, 9) * S]) });
+    for (let i = 0; i < 30; i++) {
+      const a = rand(0, Math.PI * 2), r = rand(0.6, 1.15);
+      B.breath.push({ x: cx + Math.cos(a) * B.rx * r, y: cy + Math.min(Math.sin(a), 0.4) * B.ry * r, t0: 3.2 + i * 0.05, dots: Array.from({ length: 6 }, () => [rand(-9, 9) * S, rand(-9, 9) * S]) });
     }
     B.sparkles = Array.from({ length: 22 }, () => ({ x: cx + rand(-1.5, 1.5) * B.rx, y: cy + rand(-1.6, 1.3) * B.ry, ph: rand(0, 6), s: rand(4, 9) * S }));
     return B;
@@ -2343,6 +2361,24 @@ const CONFIG = {
       fx.closePath(); fx.fill();
       fx.fillStyle = 'rgba(255,255,255,.3)';
       fx.beginPath(); fx.ellipse(-r * 0.3, r * 0.1, r * 0.14, r * 0.38, 0.2, 0, Math.PI * 2); fx.fill();
+    } else if (f.type === 'hydrangea') {
+      for (let i = 0; i < 11; i++) {
+        const a = i * 2.4, d = Math.sqrt(i / 11) * r * 0.72, x = Math.cos(a) * d, y = Math.sin(a) * d;
+        fx.fillStyle = i % 2 ? f.c : shade(f.c, 22);
+        for (let j = 0; j < 4; j++) { const b = j * 1.5708 + i; fx.beginPath(); fx.arc(x + Math.cos(b) * r * 0.13, y + Math.sin(b) * r * 0.13, r * 0.15, 0, Math.PI * 2); fx.fill(); }
+        fx.fillStyle = shade(f.c, -40); fx.beginPath(); fx.arc(x, y, r * 0.04, 0, Math.PI * 2); fx.fill();
+      }
+    } else if (f.type === 'bud') {
+      fx.fillStyle = f.c;
+      fx.beginPath(); fx.moveTo(0, -r); fx.quadraticCurveTo(r * 0.9, -r * 0.1, 0, r * 0.6); fx.quadraticCurveTo(-r * 0.9, -r * 0.1, 0, -r); fx.fill();
+      fx.strokeStyle = shade(f.c, -40); fx.lineWidth = Math.max(1, r * 0.1);
+      fx.beginPath(); fx.moveTo(0, -r * 0.6); fx.quadraticCurveTo(r * 0.3, -r * 0.1, 0, r * 0.3); fx.stroke();
+      fx.fillStyle = '#4c9a4f';
+      for (const sd of [-1, 1]) { fx.beginPath(); fx.moveTo(0, r * 0.75); fx.quadraticCurveTo(sd * r * 0.6, r * 0.35, sd * r * 0.25, -r * 0.1); fx.quadraticCurveTo(sd * r * 0.1, r * 0.4, 0, r * 0.75); fx.fill(); }
+    } else if (f.type === 'floret') {
+      fx.fillStyle = f.c;
+      for (let i = 0; i < 5; i++) { const a = i * 1.2566; fx.beginPath(); fx.arc(Math.cos(a) * r * 0.45, Math.sin(a) * r * 0.45, r * 0.42, 0, Math.PI * 2); fx.fill(); }
+      fx.fillStyle = '#ff8fb8'; fx.beginPath(); fx.arc(0, 0, r * 0.25, 0, Math.PI * 2); fx.fill();
     } else {
       fx.fillStyle = f.c;
       for (let i = 0; i < 12; i++) { const a = i * 0.5236; fx.beginPath(); fx.ellipse(Math.cos(a) * r * 0.55, Math.sin(a) * r * 0.55, r * 0.5, r * 0.17, a, 0, Math.PI * 2); fx.fill(); }
@@ -2380,14 +2416,14 @@ const CONFIG = {
       fx.fillStyle = '#fde4ec';
       fx.beginPath();
       fx.moveTo(B.tip.x, B.tip.y);
-      fx.lineTo(cx - 225 * S, cy - 70 * S);
+      fx.lineTo(cx - 245 * S, cy - 70 * S);
       for (let i = 0; i <= 6; i++) {
-        const x = cx - 225 * S + i * (450 * S / 6), y = cy - 70 * S - (i % 2 ? 34 : 8) * S - Math.sin(i / 6 * Math.PI) * 40 * S;
+        const x = cx - 245 * S + i * (490 * S / 6), y = cy - 80 * S - (i % 2 ? 38 : 8) * S - Math.sin(i / 6 * Math.PI) * 50 * S;
         fx.lineTo(x, y);
       }
       fx.closePath(); fx.fill();
       fx.fillStyle = 'rgba(229,72,122,.12)';
-      fx.beginPath(); fx.moveTo(B.tip.x, B.tip.y); fx.lineTo(cx - 225 * S, cy - 70 * S); fx.lineTo(cx - 110 * S, cy - 120 * S); fx.closePath(); fx.fill();
+      fx.beginPath(); fx.moveTo(B.tip.x, B.tip.y); fx.lineTo(cx - 245 * S, cy - 70 * S); fx.lineTo(cx - 120 * S, cy - 135 * S); fx.closePath(); fx.fill();
       fx.restore();
     }
 
@@ -2751,7 +2787,7 @@ const CONFIG = {
     // Sounds as each bloom lands, and the ribbon
     while (fin.popped < B.flowers.length && t > B.flowers[fin.popped].t0 + 0.3) {
       const f = B.flowers[fin.popped];
-      sfx(NOTES[fin.popped % NOTES.length], 0.35, 'triangle', 0.035);
+      if (!f.quiet) sfx(NOTES[fin.popped % NOTES.length], 0.35, 'triangle', 0.03);
       if (f.hero) {
         chime([1046, 1318, 1568]);
         for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2; fin.sparks.push({ x: f.x, y: f.y, vx: Math.cos(a) * 220, vy: Math.sin(a) * 220, life: 0.8, max: 0.8, c: '#ffe08a', heart: true }); }

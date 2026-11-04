@@ -2177,7 +2177,7 @@ const CONFIG = {
   }
 
   // ---------- Finale: boom, fireworks, then a pink bouquet ----------
-  const fc = $('finale'), fx = fc.getContext('2d');
+  const fc = $('finale'); let fx = fc.getContext('2d');
   let fin = null;
 
   function boomSound() {
@@ -2255,10 +2255,11 @@ const CONFIG = {
     fc.style.width = VW + 'px'; fc.style.height = VH + 'px';
     fc.classList.remove('hidden');
     fin = {
-      t: 0, sparks: [], petals: [], lanterns: [], nextBurst: 0, bursts: 0, btn: false, popped: 0, tied: false, heroPop: false,
+      t: 0, sparks: [], rain: [], pile: [], spawn: 0, surge: 0, gust: null, nextGust: 6, mouse: null, exploded: false, lanterns: [], nextBurst: 0, bursts: 0, btn: false, popped: 0, tied: false, heroPop: false,
       B: makeBouquet(),
       stars: Array.from({ length: 80 }, () => ({ x: rand(0, VW), y: rand(0, VH * 0.75), r: rand(0.5, 1.8), ph: rand(0, 6) })),
     };
+    if (!rainSprites) bakeRain();
     boomSound();
     firework(VW / 2, VH * 0.45, 90);
   }
@@ -2462,6 +2463,206 @@ const CONFIG = {
     }
   }
 
+  // ---------- Flower rain ----------
+  // Each kind is baked once into a small sprite, then thousands of draws are cheap
+  const RAIN_KINDS = [
+    { kind: 'petal', w: 40, size: 22, flat: true, colors: [...PINKS, '#fff0f5'] },
+    { kind: 'sakura', w: 30, size: 38, flat: true, colors: ['#ffc8d9', '#ffd6e4', '#ffb3c7', '#fff0f5', '#ff8fb8'] },
+    { kind: 'heart', w: 10, size: 22, flat: true, colors: ['#ff6f9f', '#e5487a', '#ff8fb8'] },
+    { kind: 'rose', w: 8, size: 44, colors: ['#ff6f9f', '#e5487a', '#ffb3c7', '#f7559a'] },
+    { kind: 'peony', w: 5, size: 46, colors: ['#ff8fb8', '#ffc8d9'] },
+    { kind: 'daisy', w: 5, size: 36, colors: ['#ffffff', '#ffc8d9'] },
+    { kind: 'tulip', w: 2, size: 40, colors: ['#f7559a', '#ff8fb8'] },
+  ];
+  let rainSprites = null;
+
+  function petalPath(R) {
+    fx.beginPath();
+    fx.moveTo(0, R);
+    fx.bezierCurveTo(-R * 0.95, R * 0.25, -R * 0.75, -R * 0.85, -R * 0.18, -R * 0.92);
+    fx.lineTo(0, -R * 0.62);
+    fx.lineTo(R * 0.18, -R * 0.92);
+    fx.bezierCurveTo(R * 0.75, -R * 0.85, R * 0.95, R * 0.25, 0, R);
+  }
+  function bakeRainSprite(kind, c) {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 96;
+    const prev = fx;
+    fx = cv.getContext('2d');
+    fx.translate(48, 48);
+    const R = 34;
+    if (kind === 'petal') {
+      fx.scale(0.72, 1);
+      const g = fx.createLinearGradient(0, -R, 0, R);
+      g.addColorStop(0, shade(c, 28)); g.addColorStop(1, shade(c, -22));
+      fx.fillStyle = g; petalPath(R); fx.fill();
+      fx.strokeStyle = 'rgba(255,255,255,.45)'; fx.lineWidth = 2;
+      fx.beginPath(); fx.moveTo(0, R * 0.8); fx.quadraticCurveTo(-R * 0.1, 0, 0, -R * 0.5); fx.stroke();
+    } else if (kind === 'sakura') {
+      for (let i = 0; i < 5; i++) {
+        fx.save(); fx.rotate(i * 1.2566); fx.translate(0, -R * 0.5);
+        const g = fx.createLinearGradient(0, -R * 0.5, 0, R * 0.5);
+        g.addColorStop(0, shade(c, 20)); g.addColorStop(1, shade(c, -30));
+        fx.fillStyle = g; petalPath(R * 0.5); fx.fill();
+        fx.restore();
+      }
+      fx.fillStyle = shade(c, -60); fx.beginPath(); fx.arc(0, 0, R * 0.18, 0, Math.PI * 2); fx.fill();
+      fx.strokeStyle = shade(c, -70); fx.lineWidth = 1.5; fx.fillStyle = '#ffd166';
+      for (let i = 0; i < 8; i++) {
+        const a = i * 0.785 + 0.3, x = Math.cos(a) * R * 0.38, y = Math.sin(a) * R * 0.38;
+        fx.beginPath(); fx.moveTo(0, 0); fx.lineTo(x, y); fx.stroke();
+        fx.beginPath(); fx.arc(x, y, 2.6, 0, Math.PI * 2); fx.fill();
+      }
+    } else if (kind === 'heart') {
+      const g = fx.createLinearGradient(0, -R, 0, R);
+      g.addColorStop(0, shade(c, 30)); g.addColorStop(1, shade(c, -20));
+      fx.fillStyle = g; fxHeart(0, -R * 0.8, R * 1.7); fx.fill();
+      fx.fillStyle = 'rgba(255,255,255,.4)'; fx.beginPath(); fx.ellipse(-R * 0.35, -R * 0.2, R * 0.14, R * 0.24, 0.5, 0, Math.PI * 2); fx.fill();
+    } else {
+      drawBloom({ type: kind, c, rot: 0 }, R * 0.95);
+    }
+    fx = prev;
+    return cv;
+  }
+  function bakeRain() {
+    rainSprites = [];
+    for (const k of RAIN_KINDS) for (const c of k.colors) rainSprites.push({ img: bakeRainSprite(k.kind, c), size: k.size, flat: !!k.flat, w: k.w / k.colors.length });
+    rainSprites.total = rainSprites.reduce((s, r) => s + r.w, 0);
+  }
+  function pickRain() {
+    let r = Math.random() * rainSprites.total;
+    for (const s of rainSprites) { r -= s.w; if (r <= 0) return s; }
+    return rainSprites[0];
+  }
+
+  // z is depth: small, faint and slow far away, big and fast up close
+  function rainDepth() {
+    const r = Math.random();
+    return r < 0.6 ? rand(0.35, 1) : r < 0.95 ? rand(1, 1.35) : rand(1.45, 1.9);
+  }
+  function addRain(x, y, vx, vy, z = rainDepth(), drag = 1.2) {
+    if (fin.rain.length > 520) return;
+    const spr = pickRain();
+    fin.rain.push({
+      spr, x, y, vx, vy, z, drag, s: spr.size * z * clamp(Math.min(VW, VH) / 650, 0.65, 1.3),
+      term: rand(45, 85) * Math.pow(z, 0.8) * (spr.flat ? 1 : 1.35),
+      rot: rand(0, 6.28), vr: rand(-2.5, 2.5), flip: rand(0, 6.28), vf: rand(1.5, 4.5),
+      ph: rand(0, 6.28), sway: rand(14, 40), glit: Math.random() < 0.2,
+      gy: VH - rand(2, 26), lands: z > 0.7 && z < 1.15,
+    });
+  }
+  function flowerBurst(x, y, n, speed, up = 120) {
+    for (let i = 0; i < n; i++) {
+      const a = rand(0, Math.PI * 2), v = rand(0.35, 1) * speed;
+      addRain(x, y, Math.cos(a) * v, Math.sin(a) * v - up, rand(0.6, 1.6), 1.7);
+    }
+  }
+  function flowerCannon(fromLeft) {
+    const k = Math.min(1.15, VH / 700);
+    for (let i = 0; i < 46; i++) {
+      const a = -Math.PI / 2 + (fromLeft ? 1 : -1) * rand(0.15, 0.7), v = rand(700, 1150) * k;
+      addRain(fromLeft ? -10 : VW + 10, VH + 10, Math.cos(a) * v, Math.sin(a) * v, rand(0.6, 1.5), 1.6);
+    }
+    sfx(180, 0.25, 'triangle', 0.08, 500);
+  }
+  function whoosh() {
+    if (!actx || muted) return;
+    const t = actx.currentTime, len = actx.sampleRate * 1.8;
+    const buf = actx.createBuffer(1, len, actx.sampleRate), data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / len);
+    const src = actx.createBufferSource(), bp = actx.createBiquadFilter(), g = actx.createGain();
+    src.buffer = buf; bp.type = 'bandpass'; bp.Q.value = 0.8;
+    bp.frequency.setValueAtTime(300, t); bp.frequency.exponentialRampToValueAtTime(1400, t + 0.9); bp.frequency.exponentialRampToValueAtTime(400, t + 1.8);
+    g.gain.value = 0.06;
+    src.connect(bp).connect(g).connect(actx.destination);
+    src.start(t);
+  }
+
+  function updateRain(dt, t) {
+    // Gentle breeze plus a strong gust now and then
+    fin.nextGust -= dt;
+    if (fin.nextGust <= 0 && t > 4) {
+      fin.gust = { t: 0, dur: 2.4, str: (Math.random() < 0.5 ? -1 : 1) * rand(170, 260) };
+      fin.nextGust = rand(6, 9);
+      whoosh();
+    }
+    let wind = Math.sin(time * 0.35) * 28;
+    if (fin.gust) {
+      fin.gust.t += dt;
+      wind += Math.sin(Math.PI * clamp(fin.gust.t / fin.gust.dur, 0, 1)) * fin.gust.str;
+      if (fin.gust.t > fin.gust.dur) fin.gust = null;
+    }
+    const spin = 1 + Math.abs(wind) / 90;
+
+    // Spawn: it starts after the boom, then pours when the bouquet is tied
+    fin.surge = Math.max(0, fin.surge - dt);
+    const rate = clamp((t - 1.2) / 3, 0, 1) * 16 + (fin.surge > 0 ? 55 : 0);
+    fin.spawn += rate * dt;
+    while (fin.spawn >= 1) {
+      fin.spawn--;
+      const z = rainDepth();
+      addRain(rand(-VW * 0.2, VW * 1.2) - wind * 2, rand(-60, -20), wind * z, rand(20, 60) * z, z);
+    }
+
+    const m = fin.mouse;
+    for (const p of fin.rain) {
+      const k = Math.min(1, p.drag * dt);
+      p.vx += (wind * (0.4 + 0.6 * p.z) - p.vx) * k;
+      p.vy += (p.term - p.vy) * k;
+      if (m) {
+        const dx = p.x - m.x, dy = p.y - m.y, d = Math.hypot(dx, dy);
+        if (d < 110 && d > 1) { const f = (1 - d / 110) * 2400 * dt; p.vx += dx / d * f; p.vy += dy / d * f; p.vr += f * 0.01; }
+      }
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.rot += p.vr * dt * spin; p.flip += p.vf * dt * spin;
+      if (p.lands && p.vy > 0 && p.y > p.gy) {
+        p.dead = true;
+        fin.pile.push({ spr: p.spr, x: p.x + Math.sin(time * 1.3 + p.ph) * p.sway, y: p.gy, rot: p.rot, sx: 0.4 + 0.6 * Math.abs(Math.cos(p.flip)), s: p.s });
+      }
+    }
+    if (fin.pile.length > 320) fin.pile.splice(0, fin.pile.length - 320);
+    fin.rain = fin.rain.filter(p => !p.dead && p.y < VH + 80 && p.x > -VW * 0.4 && p.x < VW * 1.4);
+  }
+
+  function drawRainItem(p) {
+    const x = p.x + Math.sin(time * 1.3 + p.ph) * p.sway * Math.min(1, p.vy / 40), s = p.s;
+    const c = Math.cos(p.flip);
+    fx.save();
+    fx.translate(x, p.y); fx.rotate(p.rot);
+    // Tumbling in 3D: flat petals flip edge-on, whole blooms just tilt
+    if (p.spr.flat) fx.scale(Math.abs(c) < 0.08 ? 0.08 : c, 1);
+    else fx.scale(1, 0.72 + 0.28 * c);
+    fx.globalAlpha = (p.z < 1 ? 0.35 + 0.6 * p.z : p.z > 1.4 ? 0.8 : 1) * (p.spr.flat ? 0.75 + 0.25 * Math.abs(c) : 1);
+    fx.drawImage(p.spr.img, -s / 2, -s / 2, s, s);
+    fx.restore();
+    if (p.glit) {
+      const a = Math.sin(time * 5 + p.ph * 3);
+      if (a > 0.5) twinkle(x + s * 0.3, p.y - s * 0.3, 3 + 4 * p.z, (a - 0.5) * 1.6);
+    }
+  }
+  function drawRain(front) {
+    for (const p of fin.rain) if ((p.z >= 1) === front) drawRainItem(p);
+    fx.globalAlpha = 1;
+  }
+  function drawPile() {
+    for (const q of fin.pile) {
+      fx.save(); fx.translate(q.x, q.y); fx.rotate(q.rot); fx.scale(q.sx, 0.55);
+      fx.globalAlpha = 0.95;
+      fx.drawImage(q.spr.img, -q.s / 2, -q.s / 2, q.s, q.s);
+      fx.restore();
+    }
+    fx.globalAlpha = 1;
+  }
+
+  fc.addEventListener('pointermove', e => { if (fin) fin.mouse = { x: e.clientX, y: e.clientY }; });
+  fc.addEventListener('pointerleave', () => { if (fin) fin.mouse = null; });
+  fc.addEventListener('pointerdown', e => {
+    if (!fin) return;
+    initAudio();
+    flowerBurst(e.clientX, e.clientY, 26, 420);
+    sfx(pick(NOTES), 0.35, 'triangle', 0.05);
+  });
+
   function drawFinale(dt) {
     if (!fin) return;
     fin.t += dt;
@@ -2531,6 +2732,12 @@ const CONFIG = {
     fx.globalCompositeOperation = 'source-over';
     fx.globalAlpha = 1;
 
+    // The boom blows a cloud of flowers out of the chest, then the rain begins
+    if (!fin.exploded && t > 0.12) { fin.exploded = true; flowerBurst(VW / 2, VH * 0.45, 90, 900, 150); }
+    updateRain(dt, t);
+    drawRain(false);
+    drawPile();
+
     drawBouquet(t);
     if (t > B.done) {
       const k = clamp((t - B.done) / 0.6, 0, 1);
@@ -2556,22 +2763,11 @@ const CONFIG = {
       chime([784, 988, 1175, 1568]);
       firework(VW * 0.25, VH * 0.2, 70, true);
       firework(VW * 0.75, VH * 0.2, 70, true);
+      flowerCannon(true); flowerCannon(false);
+      fin.surge = 3.5;
     }
 
-    // Falling petals, mostly pink
-    if (t > 2 && Math.random() < dt * 16) {
-      fin.petals.push({ x: rand(-20, VW + 20), y: -20, vy: rand(40, 90), ph: rand(0, 6), rot: rand(0, 6), vr: rand(-2, 2), c: Math.random() < 0.85 ? pick(PINKS) : '#ffffff', s: rand(5, 9) });
-    }
-    for (const p of fin.petals) {
-      p.y += p.vy * dt; p.rot += p.vr * dt;
-      const x = p.x + Math.sin(time * 1.5 + p.ph) * 30;
-      fx.save(); fx.translate(x, p.y); fx.rotate(p.rot);
-      fx.fillStyle = p.c; fx.globalAlpha = 0.9;
-      fx.beginPath(); fx.ellipse(0, 0, p.s, p.s * 0.55, 0, 0, Math.PI * 2); fx.fill();
-      fx.restore();
-    }
-    fx.globalAlpha = 1;
-    fin.petals = fin.petals.filter(p => p.y < VH + 20);
+    drawRain(true);
 
     // Greeting
     const gt = B.done + 0.5;

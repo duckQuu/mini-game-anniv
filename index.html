@@ -438,6 +438,8 @@ const CONFIG = {
   let actx = null, muted = false, musicStarted = false;
   function initAudio() {
     try {
+      // let iPhones play the music even with the silent switch on
+      if (navigator.audioSession) navigator.audioSession.type = 'playback';
       if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
       else if (actx.state === 'suspended') actx.resume();
     } catch (e) {}

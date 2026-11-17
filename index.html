@@ -416,20 +416,96 @@ const CONFIG = {
     if (song && songOn) document.hidden ? song.pause() : song.play().catch(() => {});
   });
 
-  const MELODY = [523, 659, 784, 659, 587, 698, 880, 698, 523, 659, 784, 1046, 988, 784, 659, 587];
+  // An original slow piano ballad: soft arpeggios under a singing lead
+  const BEAT = 60 / 72;
+  const BALLAD_CHORDS = [
+    [48, 60, 64, 67], [47, 59, 62, 67], [45, 57, 60, 64], [43, 55, 59, 64],
+    [41, 57, 60, 65], [40, 55, 60, 64], [38, 57, 62, 65], [43, 55, 59, 62],
+  ];
+  // [note, beats] per bar; 0 is a rest
+  const BALLAD_LEAD = [
+    [[76, 1.5], [74, 0.5], [72, 1], [67, 1]], [[74, 1], [76, 0.5], [74, 0.5], [71, 2]],
+    [[72, 1.5], [71, 0.5], [69, 1], [64, 1]], [[67, 1], [69, 0.5], [71, 0.5], [67, 2]],
+    [[69, 1], [72, 1], [77, 1.5], [76, 0.5]], [[76, 1], [74, 0.5], [72, 0.5], [67, 2]],
+    [[65, 1], [69, 1], [74, 1], [72, 0.5], [74, 0.5]], [[74, 3], [0, 1]],
+    [[79, 1.5], [76, 0.5], [76, 1], [74, 0.5], [72, 0.5]], [[74, 1.5], [67, 0.5], [71, 1], [74, 1]],
+    [[72, 1], [76, 1], [81, 1.5], [79, 0.5]], [[79, 1], [76, 1], [71, 2]],
+    [[81, 1.5], [79, 0.5], [77, 1], [76, 1]], [[76, 1], [79, 0.5], [76, 0.5], [72, 2]],
+    [[74, 1], [77, 1], [76, 1], [74, 1]], [[71, 1], [74, 1], [79, 2]],
+  ];
+  // which chord tone each eighth note plays, and its octave shift
+  const ARP = [[0, 0], [1, 0], [2, 0], [3, 0], [1, 12], [3, 0], [2, 0], [1, 0]];
+  const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+  let musicBus = null;
+
+  function pianoNote(m, t, vol, len = 1.8) {
+    const o1 = actx.createOscillator(), o2 = actx.createOscillator(), g = actx.createGain(), lp = actx.createBiquadFilter();
+    o1.type = 'triangle'; o2.type = 'sine';
+    o1.frequency.value = mtof(m); o2.frequency.value = mtof(m) * 2;
+    lp.type = 'lowpass'; lp.frequency.value = 2400;
+    const g2 = actx.createGain(); g2.gain.value = 0.3;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    o1.connect(lp); o2.connect(g2).connect(lp); lp.connect(g).connect(musicBus);
+    o1.start(t); o2.start(t); o1.stop(t + len + 0.05); o2.stop(t + len + 0.05);
+  }
+  function leadNote(m, t, dur, vol) {
+    const o1 = actx.createOscillator(), o2 = actx.createOscillator(), g = actx.createGain();
+    const lfo = actx.createOscillator(), depth = actx.createGain();
+    o1.type = 'sine'; o2.type = 'triangle';
+    o1.frequency.value = o2.frequency.value = mtof(m);
+    // a little vibrato that grows as the note is held, like a voice
+    lfo.frequency.value = 5.2; depth.gain.setValueAtTime(0, t); depth.gain.linearRampToValueAtTime(14, t + Math.min(0.6, dur));
+    lfo.connect(depth); depth.connect(o1.detune); depth.connect(o2.detune);
+    const g2 = actx.createGain(); g2.gain.value = 0.35;
+    const end = t + dur + 0.25;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.06);
+    g.gain.setValueAtTime(vol * 0.8, t + Math.max(0.07, dur - 0.05));
+    g.gain.exponentialRampToValueAtTime(0.0001, end);
+    o1.connect(g); o2.connect(g2).connect(g); g.connect(musicBus);
+    for (const o of [o1, o2, lfo]) { o.start(t); o.stop(end + 0.05); }
+  }
+  function padChord(ch, t, len) {
+    for (const m of ch.slice(1)) {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = 'sine'; o.frequency.value = mtof(m + 12);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.012, t + len * 0.4);
+      g.gain.linearRampToValueAtTime(0.0001, t + len + 0.3);
+      o.connect(g).connect(musicBus);
+      o.start(t); o.stop(t + len + 0.4);
+    }
+  }
+  function scheduleBar(bar, t) {
+    const ch = BALLAD_CHORDS[bar % 8], half = BEAT / 2;
+    ARP.forEach(([k, up], i) => pianoNote(ch[k] + up, t + i * half, i === 0 ? 0.05 : 0.026));
+    let lt = t;
+    for (const [m, beats] of BALLAD_LEAD[bar % 16]) {
+      if (m) leadNote(m, lt, beats * BEAT * 0.95, 0.04);
+      lt += beats * BEAT;
+    }
+    // At the finale the pad swells in under everything
+    if (fin) padChord(ch, t, BEAT * 4);
+  }
   function startMusic() {
     if (musicStarted || !actx) return;
     musicStarted = true;
-    let step = 0;
+    musicBus = actx.createGain();
+    musicBus.gain.value = muted ? 0 : 1;
+    // a soft echo stands in for a concert-hall reverb
+    const echo = actx.createDelay(1), fb = actx.createGain(), wet = actx.createGain(), lp = actx.createBiquadFilter();
+    echo.delayTime.value = BEAT * 0.75; fb.gain.value = 0.3; wet.gain.value = 0.3; lp.type = 'lowpass'; lp.frequency.value = 1800;
+    musicBus.connect(actx.destination);
+    musicBus.connect(echo); echo.connect(lp).connect(fb).connect(echo); lp.connect(wet).connect(actx.destination);
+    let bar = 0, next = actx.currentTime + 0.3;
     setInterval(() => {
-      if (muted || document.hidden || songOn) return;
-      const f = MELODY[step % MELODY.length];
-      sfx(f / 2, 0.45, 'triangle', 0.018);
-      if (step % 4 === 0) sfx(f / 4, 1.2, 'sine', 0.03);
-      step++;
-    }, 400);
+      if (document.hidden || songOn) { next = actx.currentTime + 0.3; return; }
+      while (next < actx.currentTime + 0.6) { scheduleBar(bar++, next); next += BEAT * 4; }
+    }, 150);
   }
-  function toggleMute() { muted = !muted; $('mute').textContent = muted ? '🔇' : '🔊'; if (song) song.muted = muted; }
+  function toggleMute() { muted = !muted; $('mute').textContent = muted ? '🔇' : '🔊'; if (song) song.muted = muted; if (musicBus) musicBus.gain.value = muted ? 0 : 1; }
   $('mute').onclick = e => { e.currentTarget.blur(); initAudio(); toggleMute(); };
   $('wardrobeBtn').onclick = e => { e.currentTarget.blur(); if (state === 'play' && !dlg.active) openWardrobe('play'); };
 

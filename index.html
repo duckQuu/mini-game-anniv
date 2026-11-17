@@ -25,8 +25,8 @@ const CONFIG = {
 
   soundtrack: {
     file: 'music/yue-ding.mp3',
-    playFrom: 'finale',  // 'start' = the whole game, 'finale' = only from the boom on (the game has the piano ballad)
-    finaleStartAt: 50,   // seconds into the song to jump to at the boom: 0:50 is where the chorus starts
+    playFrom: 'start',   // 'start' = the whole game, 'finale' = only from the boom on
+    finaleStartAt: null, // seconds into the song to jump to at the boom; null keeps it going
     volume: 0.7,
   },
   herName: 'Reika Sayangg',
@@ -125,7 +125,7 @@ const CONFIG = {
     title: 'Our Story',
     subtitle: '{you} 💗 {her}',
     secondsPerPhoto: 6,
-    musicStartAt: 0,      // the song starts from the beginning with the movie; null keeps it going
+    musicStartAt: null,   // seconds into the song to jump to when the movie starts; null keeps it going
     photos: [
       { src: 'photos/01.jpg', text: 'Boo, scary 👻' },
       { src: 'photos/02.jpg', text: 'My favorite goofball 🤪' },

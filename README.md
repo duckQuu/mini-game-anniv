@@ -17,4 +17,4 @@ To use your own song as the soundtrack, save it as `music/yue-ding.mp3` (or chan
 
 After the bouquet there's a little movie of your photos, each with a line of text underneath, before the letter. Put the pictures in `photos/` and list them in `movie.photos` (see `photos/README.md`). With no photos listed, the movie is skipped.
 
-The `music/` folder is in `.gitignore`, so the song stays on your computer and never gets uploaded to the public repo.
+Only `music/yue-ding.mp3` from the `music/` folder is uploaded; any other files there stay on your computer.

@@ -1,3 +1,4 @@
 .DS_Store
-music/
-photos/*.jpg
+# only the converted song gets published
+music/*
+!music/yue-ding.mp3

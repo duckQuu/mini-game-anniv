@@ -14,3 +14,7 @@ A little anniversary dungeon adventure that runs in the browser. Explore torch-l
 Everything personal lives in the `CONFIG` block near the top of `index.html`: names, the guardians' questions and answers, the memories, and the final letter. Photos are optional. Put them in a `photos/` folder and reference them as `photo: 'photos/1.jpg'`.
 
 To use your own song as the soundtrack, save it as `music/yue-ding.mp3` (or change `soundtrack.file`). Set `playFrom` to `'start'` to hear it through the whole game or `'finale'` to save it for the ending, and `finaleStartAt` to jump to a favorite part (in seconds) when the boom happens. If the file is missing, the built-in tune plays.
+
+After the bouquet there's a little movie of your photos, each with a line of text underneath, before the letter. Put the pictures in `photos/` and list them in `movie.photos` (see `photos/README.md`). With no photos listed, the movie is skipped.
+
+The `music/` folder is in `.gitignore`, so the song stays on your computer and never gets uploaded to the public repo.

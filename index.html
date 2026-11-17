@@ -107,6 +107,21 @@ const CONFIG = {
     ],
     signoff: 'Forever yours,\n{you}',
   },
+
+  // 🎬 A little movie of your photos with words underneath. It plays after
+  // the bouquet, before the letter. Put the pictures in the photos/ folder
+  // and list them here in order. With no photos it's skipped.
+  movie: {
+    title: 'Our Story',
+    subtitle: '{you} 💗 {her}',
+    secondsPerPhoto: 5,
+    musicStartAt: null,   // e.g. 60 jumps the song to 1:00 when the movie starts
+    photos: [
+      // { src: 'photos/1.jpg', text: 'The first day we met' },
+      // { src: 'photos/2.jpg', text: 'Our first trip together' },
+    ],
+    ending: 'And our story continues… 💗',
+  },
 };
 </script>
 <style>
@@ -210,6 +225,30 @@ const CONFIG = {
   @keyframes rise { to { transform: translateY(-115vh) rotate(25deg); } }
 
   #finale { position: fixed; inset: 0; }
+
+  /* Photo movie */
+  #movie { position: fixed; inset: 0; background: #0d0710; overflow: hidden; display: flex; flex-direction: column; animation: fadeIn 1s ease-out; }
+  .mv-stage { position: relative; flex: 1; overflow: hidden; }
+  .mv-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1.2s ease; }
+  .mv-slide.on { opacity: 1; }
+  .mv-bg { position: absolute; inset: -40px; background: center / cover no-repeat; filter: blur(28px) brightness(.55) saturate(1.2); }
+  .mv-img { position: absolute; inset: 4% 4% 0; width: 92%; height: 96%; object-fit: contain; filter: drop-shadow(0 12px 40px rgba(0,0,0,.6)); }
+  .mv-slide.on .mv-img { animation: kbIn var(--dur) ease-out forwards; }
+  .mv-slide.on.alt .mv-img { animation-name: kbOut; }
+  @keyframes kbIn { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.09) translate(-1.5%, -1%); } }
+  @keyframes kbOut { from { transform: scale(1.09) translate(1.5%, -1%); } to { transform: scale(1) translate(0, 0); } }
+  .mv-card { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px;
+    background: radial-gradient(circle at 50% 45%, #5a1f45, #0d0710 70%); color: #fff; }
+  .mv-card h1 { font-family: Caveat, cursive; font-size: clamp(48px, 11vw, 96px); margin: 0; color: #ffd3e2; text-shadow: 0 0 30px rgba(255,111,159,.7); }
+  .mv-card p { font-family: Caveat, cursive; font-size: clamp(26px, 5vw, 40px); color: #ffd166; margin: 6px 0 0; }
+  .mv-cap { flex: 0 0 auto; min-height: 17vh; display: flex; align-items: center; justify-content: center; padding: 8px 20px 26px; box-sizing: border-box;
+    font-family: Caveat, cursive; font-size: clamp(26px, 4.6vw, 40px); line-height: 1.15; color: #fff; text-align: center; text-shadow: 0 0 18px rgba(255,111,159,.8); }
+  .mv-cap span { animation: fadeIn 1s ease-out .5s both; }
+  .mv-dots { position: absolute; left: 0; right: 0; bottom: 10px; display: flex; justify-content: center; gap: 6px; }
+  .mv-dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.25); transition: background .4s, transform .4s; }
+  .mv-dots i.on { background: #ff8fb8; transform: scale(1.4); }
+  #mvSkip { position: absolute; top: 12px; right: 12px; z-index: 2; background: rgba(255,255,255,.12); color: #fff; border: 0; border-radius: 99px; padding: 8px 14px; font: 600 14px Fredoka, sans-serif; cursor: pointer; }
+  #mvLetter { position: absolute; left: 50%; bottom: 4vh; transform: translateX(-50%); margin: 0; z-index: 2; animation: pop .6s ease-out; }
   #rainTop { position: fixed; inset: 0; pointer-events: none; }
   #overlay.clear { background: transparent; backdrop-filter: none; }
   #finaleBtn {
@@ -281,6 +320,13 @@ const CONFIG = {
 <canvas id="finale" class="hidden"></canvas>
 <button class="btn hidden" id="finaleBtn">Open your letter 💌</button>
 <div id="overlay"></div>
+<div id="movie" class="hidden">
+  <div class="mv-stage" id="mvStage"></div>
+  <div class="mv-cap" id="mvCap"></div>
+  <div class="mv-dots" id="mvDots"></div>
+  <button id="mvSkip">Skip ⏭</button>
+  <button class="btn hidden" id="mvLetter">Open your letter 💌</button>
+</div>
 <canvas id="rainTop" class="hidden"></canvas>
 
 <script>
@@ -689,6 +735,13 @@ const CONFIG = {
     if (e.code === 'KeyM') toggleMute();
     if (e.repeat) return;
     if (state === 'wardrobe') { if (e.code === 'Escape' || e.code === 'KeyC') closeWardrobe(); return; }
+    if (state === 'movie') {
+      if (mv && mv.done) { if (e.code === 'Enter' || e.code === 'Space') $('mvLetter').click(); }
+      else if (e.code === 'ArrowRight' || e.code === 'Space' || e.code === 'Enter') nextSlide(1);
+      else if (e.code === 'ArrowLeft') nextSlide(-1);
+      else if (e.code === 'Escape') endMovie();
+      return;
+    }
     if (state === 'title' && (e.code === 'Enter' || e.code === 'Space')) startGame();
     else if (state === 'play' && !dlg.active && e.code === 'KeyC') openWardrobe('play');
     else if (dlg.active) dialogKey(e.code);
@@ -2413,6 +2466,7 @@ const CONFIG = {
     if (!rainSprites) bakeRain();
     rt.width = VW * DPR; rt.height = VH * DPR;
     rt.style.width = VW + 'px'; rt.style.height = VH + 'px';
+    $('finaleBtn').textContent = hasMovie() ? 'Watch our story 🎬' : 'Open your letter 💌';
     playSong(ST.playFrom === 'finale' || ST.finaleStartAt ? ST.finaleStartAt || 0 : undefined);
     boomSound();
     firework(VW / 2, VH * 0.45, 90);
@@ -2420,6 +2474,7 @@ const CONFIG = {
 
   function endFinale() {
     fin = null;
+    closeMovie();
     fc.classList.add('hidden');
     rt.classList.add('hidden');
     if (ST.playFrom === 'finale') stopSong();
@@ -2427,7 +2482,92 @@ const CONFIG = {
     overlay.classList.remove('clear');
     hideOverlay();
   }
-  $('finaleBtn').onclick = () => { initAudio(); showLetter(); };
+  $('finaleBtn').onclick = () => { initAudio(); hasMovie() ? playMovie() : showLetter(); };
+
+  // ---------- Photo movie ----------
+  const MV = CONFIG.movie || {};
+  const hasMovie = () => !!(MV.photos && MV.photos.length);
+  let mv = null;
+
+  function playMovie() {
+    state = 'movie';
+    $('finaleBtn').classList.add('hidden');
+    const m = $('movie');
+    m.classList.remove('hidden');
+    rt.classList.remove('hidden');
+    $('mvLetter').classList.add('hidden');
+    $('mvStage').innerHTML = `<div class="mv-card"><h1>${esc(fmt(MV.title || 'Our Story'))}</h1><p>${esc(fmt(MV.subtitle || ''))}</p></div>`;
+    $('mvCap').innerHTML = ''; $('mvDots').innerHTML = '';
+    if (typeof MV.musicStartAt === 'number') playSong(MV.musicStartAt);
+    mv = { i: -1, slides: [], timer: null };
+    // Load every photo first; any that fail are just left out
+    const loads = MV.photos.map(ph => new Promise(res => {
+      const img = new Image();
+      img.onload = () => res(ph); img.onerror = () => res(null);
+      img.src = ph.src;
+    }));
+    const cur = mv;
+    Promise.all([...loads, new Promise(r => setTimeout(r, 3200))]).then(list => {
+      if (mv !== cur) return;
+      mv.slides = list.slice(0, -1).filter(Boolean);
+      if (!mv.slides.length) return endMovie();
+      $('mvDots').innerHTML = mv.slides.map(() => '<i></i>').join('');
+      nextSlide(1);
+    });
+  }
+  function showSlide(i) {
+    const ph = mv.slides[i], dur = (MV.secondsPerPhoto || 5) + 1.5;
+    const el = document.createElement('div');
+    el.className = 'mv-slide' + (i % 2 ? ' alt' : '');
+    el.style.setProperty('--dur', dur + 's');
+    el.innerHTML = `<div class="mv-bg"></div><img class="mv-img" alt="">`;
+    el.querySelector('.mv-bg').style.backgroundImage = `url("${encodeURI(ph.src)}")`;
+    el.querySelector('img').src = ph.src;
+    const stage = $('mvStage');
+    stage.appendChild(el);
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('on')));
+    // let the old slide fade out underneath, then drop it
+    for (const old of [...stage.children].slice(0, -1)) { old.classList.remove('on'); setTimeout(() => old.remove(), 1400); }
+    $('mvCap').innerHTML = ph.text ? `<span>${esc(fmt(ph.text))}</span>` : '';
+    [...$('mvDots').children].forEach((d, k) => d.classList.toggle('on', k === i));
+    sfx(NOTES[i % NOTES.length] * 2, 0.6, 'sine', 0.02);
+  }
+  function nextSlide(step) {
+    if (!mv || !mv.slides.length) return;
+    clearTimeout(mv.timer);
+    const i = mv.i + step;
+    if (i < 0) return;
+    if (i >= mv.slides.length) return endMovie();
+    mv.i = i;
+    showSlide(i);
+    mv.timer = setTimeout(() => nextSlide(1), (MV.secondsPerPhoto || 5) * 1000);
+  }
+  function endMovie() {
+    if (!mv) return;
+    clearTimeout(mv.timer);
+    mv.done = true;
+    const stage = $('mvStage');
+    const card = document.createElement('div');
+    card.className = 'mv-slide';
+    card.innerHTML = `<div class="mv-card"><h1 style="font-size:clamp(38px,8vw,72px)">${esc(fmt(MV.ending || '💗'))}</h1></div>`;
+    stage.appendChild(card);
+    requestAnimationFrame(() => requestAnimationFrame(() => card.classList.add('on')));
+    for (const old of [...stage.children].slice(0, -1)) { old.classList.remove('on'); setTimeout(() => old.remove(), 1400); }
+    $('mvCap').innerHTML = ''; $('mvDots').innerHTML = '';
+    $('mvSkip').classList.add('hidden');
+    chime([784, 988, 1175, 1568]);
+    setTimeout(() => { if (mv && mv.done) $('mvLetter').classList.remove('hidden'); }, 1800);
+  }
+  function closeMovie() {
+    if (mv) clearTimeout(mv.timer);
+    mv = null;
+    $('movie').classList.add('hidden');
+    $('mvStage').innerHTML = '';
+    $('mvSkip').classList.remove('hidden');
+  }
+  $('mvSkip').onclick = e => { e.stopPropagation(); endMovie(); };
+  $('mvLetter').onclick = e => { e.stopPropagation(); closeMovie(); showLetter(); };
+  $('movie').addEventListener('click', () => { if (mv && !mv.done) nextSlide(1); });
 
   function firework(x, y, n = 60, heart = false) {
     const c1 = pick(PINKS), c2 = Math.random() < 0.5 ? '#ffd166' : '#ffffff';
@@ -2815,7 +2955,9 @@ const CONFIG = {
     }
   }
   function drawRain(front) {
-    for (const p of fin.rain) if ((p.z >= 1) === front) drawRainItem(p);
+    // During the movie only light petals drift over the photos
+    const light = state === 'movie';
+    for (const p of fin.rain) if ((p.z >= 1) === front && !(light && !p.spr.flat)) drawRainItem(p);
     fx.globalAlpha = 1;
   }
   function drawPile() {
@@ -2941,8 +3083,8 @@ const CONFIG = {
       fin.surge = 3.5;
     }
 
-    if (state === 'letter') {
-      // Over the letter the flowers fall in front of it, on their own canvas
+    if (state === 'letter' || state === 'movie') {
+      // Over the letter and the movie the flowers fall in front of it, on their own canvas
       rtx.setTransform(DPR, 0, 0, DPR, 0, 0); rtx.clearRect(0, 0, VW, VH);
       const prev = fx; fx = rtx; drawRain(true); fx = prev;
     } else drawRain(true);

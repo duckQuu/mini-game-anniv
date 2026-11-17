@@ -32,7 +32,7 @@ const CONFIG = {
   herName: 'Reika',
   yourName: 'Juan',
 
-  // 🤫 Your shortcut for testing: stand next to Sir Clank (or talk to him)
+  // 🤫 Your shortcut for testing: stand next to Sir Golds Gym (or talk to him)
   // and type this word. All doors open and you land next to the treasure chest.
   secretWord: 'juan',
 
@@ -47,26 +47,28 @@ const CONFIG = {
   // Each guardian gives a little challenge first, then asks the questions.
   gates: [
     {
-      name: 'Sir Clank', kind: 'knight',
-      lines: ['HALT! None shall pass...', '...unless you answer my question, fair adventurer.'],
+      name: 'Sir Golds Gym', kind: 'knight',
+      lines: ['HALT! None shall pass without proper gains...', '...and without answering my questions, fair adventurer. 💪'],
       questions: [
-        { q: 'Where did we first meet?', choices: ['At school', 'Through friends', 'Online', 'At a café'], answer: 1, hint: 'Someone introduced us!' },
+        { q: 'Where did we first meet?', choices: ['At school', 'At the gym', 'Through friends', 'At a café'], answer: 1, hint: 'Somewhere we both sweat a lot 💪' },
+        { q: 'What did we eat after the gym? (type it)', answers: ['habibi'], hint: 'Starts with H... and it means "my love" in Arabic 😉', yay: 'Yesss! Post-workout feast!' },
       ],
-      success: 'Correct! A true adventurer. The door is yours!',
+      success: 'Correct! True gym royalty. The door is yours!',
     },
     {
-      name: 'Mochi', kind: 'cat',
-      lines: ['Mrrrow. I guard this door for snacks.', 'Answer my question and I might move. Maybe.'],
+      name: 'Sir Matcha', kind: 'cat',
+      lines: ['Mrrrow. I am Sir Matcha, guardian of the green tea. 🍵', 'Answer my question and I might move. Maybe.'],
       questions: [
-        { q: "What's {you}'s favorite food? (type it)", answers: ['pizza'], hint: "It's round, cheesy, and comes in slices." },
+        { q: 'What matcha did we first drink together? (type it)', answers: ['maicha', 'mai cha'], hint: 'Starts with M... sounds like "my cha" 🍵' },
       ],
-      success: 'Purrfect. Fine, you may pass.',
+      success: 'Purrfect. Fine, you may pass. 🍵',
     },
     {
       name: 'Boo', kind: 'ghost',
       lines: ['Oooooo... I am the ghost of anniversaries past...'],
       questions: [
-        { q: 'When is our anniversary?', choices: ['January 1', 'February 14', 'October 29', 'December 25'], answer: 2, hint: 'Look at the calendar today 👀' },
+        { q: 'When is our anniversary? (type it as mm-dd-yyyy)', answers: ['11-18-2024', '18-11-2024', '18 november 2024', 'november 18 2024', 'nov 18 2024', '18 nov 2024'], hint: 'November 2024... the day it all began 💗' },
+        { q: 'Where did I ask you to be my girlfriend?', choices: ['At the gym', 'At the aquarium', 'Union', 'In the car'], answer: 2, hint: 'Think back to that nervous night 😳💍' },
       ],
       success: "Oooo, you remembered! I'm so happy I could cry. (Ghosts can't cry.)",
     },
@@ -74,7 +76,8 @@ const CONFIG = {
       name: 'Merlinda', kind: 'wizard',
       lines: ['Ah, you have come far, {her}.', 'Beyond this door lies the treasure.'],
       questions: [
-        { q: 'Who loves you the most in the whole world?', choices: ['Sir Clank', 'Mochi the cat', '{you}', 'Boo the ghost'], answer: 2, yay: 'Obviously. Everyone in this dungeon knows that.' },
+        { q: "What's {you}'s nickname for you? (type it)", answers: ['rei bong', 'rey bong'], hint: 'Rei ___ 😆' },
+        { q: 'Who loves you the most in the whole world?', choices: ['Sir Golds Gym', 'Sir Matcha', '{you}', 'Boo the ghost'], answer: 2, yay: 'Obviously. Everyone in this dungeon knows that.' },
       ],
       success: 'The treasure awaits you. Go on, dear.',
     },
@@ -92,22 +95,24 @@ const CONFIG = {
 
   // Each heart she picks up shows one of these (up to 10).
   memories: [
-    { text: 'Memory #1: The first time we met. (Write the story here!)' },
-    { text: 'Memory #2: Our first date. (What happened? What did we eat?)' },
-    { text: 'Memory #3: The moment I knew I loved you.' },
-    { text: 'Memory #4: That trip we took together.' },
-    { text: 'Memory #5: A silly inside joke only we get.' },
-    { text: 'Memory #6: Something you do that always makes me smile.' },
+    { text: 'I still remember how amazed I was the first time I saw your face. You are so beautiful. 😍' },
+    { text: 'Do you remember how long we went out together before we finally held hands? :)' },
+    { text: "I've loved you since the first time I looked at you. I was just too shy to say it. 🙈" },
+    { text: 'Remember when I got angry at the aquarium? I was just so emotional there. Happy, angry and sad, all at the same time. 🐠' },
+    { text: 'Please gimme a pap if you read this 📸' },
+    { text: "I'm sorry if I'm not always a good bf, but I will always try my best to love you. 💗" },
   ],
 
   // Shown when she opens the treasure chest.
   letter: {
-    title: 'Happy Anniversary, {her}! 💗',
+    title: 'Happy 2nd Anniversary, {her}! 💗',
     photo: '',
     paragraphs: [
-      'You made it through the whole dungeon!',
-      'Write your letter here. Tell her what this year meant to you, your favorite moments, and what you are looking forward to together.',
-      'Thank you for being my favorite adventure.',
+      'Hello my love, thanks for playing until the end! 💗',
+      'And thank you for staying and being my gf for 2 years (yeah, officially 2 years!). Thank you for being patient with me, thank you for loving me, and thank you for always being my best partner.',
+      'The road ahead may not be smooth. We may fight, cry and shout, but the truth is I will always love you, and I know you do too.',
+      '2 years is just a milestone, a short milestone for us, and I hope there will be many more milestones ahead.',
+      'Let us pray, and believe that God will lead us and unite us. 🙏',
     ],
     signoff: 'Forever yours,\n{you}',
   },
@@ -914,7 +919,11 @@ const CONFIG = {
     e.preventDefault();
     const v = $('dlgInput').value;
     if (!v.trim() || !dlg.cur || !dlg.cur.ask) return;
-    answer((dlg.cur.ask.answers || []).some(a => norm(fmt(a)) === norm(v)));
+    const said = norm(v);
+    answer((dlg.cur.ask.answers || []).some(a => {
+      const want = norm(fmt(a));
+      return want === said || want.replace(/ /g, '') === said.replace(/ /g, '') || (want.length >= 4 && ` ${said} `.includes(` ${want} `));
+    }));
   });
   $('dlgInput').addEventListener('keydown', e => { if (e.code === 'Escape') closeDialog(false); });
 
@@ -3152,7 +3161,11 @@ const CONFIG = {
       const y = Math.max(s1 + 10, B.cy - B.ry - 190 * B.S) + (1 - a) * 20;
       fx.font = `700 ${s1}px Fredoka, system-ui, sans-serif`;
       fx.strokeStyle = 'rgba(60,10,40,.55)'; fx.lineWidth = 6; fx.lineJoin = 'round';
-      fx.strokeText('Happy Anniversary', VW / 2, y); fx.fillStyle = '#fff'; fx.fillText('Happy Anniversary', VW / 2, y);
+      const hello = 'Happy 2nd Anniversary';
+      const fit = Math.min(1, (VW - 32) / fx.measureText(hello).width);
+      fx.save(); fx.translate(VW / 2, y); fx.scale(fit, fit);
+      fx.strokeText(hello, 0, 0); fx.fillStyle = '#fff'; fx.fillText(hello, 0, 0);
+      fx.restore();
       fx.font = `700 ${s2}px Caveat, cursive`;
       const name = fmt('{her}') + ' 💗';
       fx.strokeText(name, VW / 2, y + s2 * 0.95); fx.fillStyle = '#ffd166'; fx.fillText(name, VW / 2, y + s2 * 0.95);

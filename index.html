@@ -29,8 +29,12 @@ const CONFIG = {
     finaleStartAt: 0,    // seconds into the song to jump to at the boom (e.g. the chorus)
     volume: 0.7,
   },
-  herName: 'My Love',
-  yourName: 'Me',
+  herName: 'Reika',
+  yourName: 'Juan',
+
+  // 🤫 Your shortcut for testing: stand next to Sir Clank (or talk to him)
+  // and type this word. All doors open and you land next to the treasure chest.
+  secretWord: 'juan',
 
   intro: [
     { who: '???', say: 'Psst... {her}! Over here.' },
@@ -762,6 +766,7 @@ const CONFIG = {
     initAudio();
     if (e.code === 'KeyM') toggleMute();
     if (e.repeat) return;
+    if (state === 'play' && /^Key[A-Z]$/.test(e.code) && secretKey(e.code[3].toLowerCase())) return;
     if (state === 'wardrobe') { if (e.code === 'Escape' || e.code === 'KeyC') closeWardrobe(); return; }
     if (state === 'movie') {
       if (mv && mv.done) { if (e.code === 'Enter' || e.code === 'Space') $('mvLetter').click(); }
@@ -1006,6 +1011,24 @@ const CONFIG = {
     } else {
       openDialog(askSteps(n));
     }
+  }
+
+  // Typing CONFIG.secretWord near the first guardian skips straight to the chest
+  let typed = '';
+  function secretKey(ch) {
+    const word = String(CONFIG.secretWord || '').toLowerCase();
+    if (!word) return false;
+    typed = (typed + ch).slice(-word.length);
+    const clank = npcs.find(n => n.door && n.door.gate === 0);
+    if (typed !== word || !clank || Math.hypot(player.x - clank.x, player.y - clank.y) > T * 3) return false;
+    typed = '';
+    if (dlg.active) closeDialog(false);
+    for (const d of doors) { d.solved = true; d.opening = true; checkpoint = d.after; }
+    for (const n of npcs) n.ch.state = 'done';
+    Object.assign(player, center(24, 4), { vx: 0, vy: 0, hp: MAX_HP, invuln: 2 });
+    showBanner('🤫 Secret shortcut! Open the chest 💝');
+    chime([523, 659, 784, 1046]);
+    return true;
   }
 
   function openDoor(d) {

@@ -12,3 +12,5 @@ A little anniversary dungeon adventure that runs in the browser. Explore torch-l
 ## Making it yours
 
 Everything personal lives in the `CONFIG` block near the top of `index.html`: names, the guardians' questions and answers, the memories, and the final letter. Photos are optional. Put them in a `photos/` folder and reference them as `photo: 'photos/1.jpg'`.
+
+To use your own song as the soundtrack, save it as `music/yue-ding.mp3` (or change `soundtrack.file`). Set `playFrom` to `'start'` to hear it through the whole game or `'finale'` to save it for the ending, and `finaleStartAt` to jump to a favorite part (in seconds) when the boom happens. If the file is missing, the built-in tune plays.

@@ -17,9 +17,18 @@
    - `hint` shows after a wrong answer. `yay` is said after a right one.
    - Photos are optional: put image files in the repo (e.g. photos/1.jpg)
      and set photo: 'photos/1.jpg'.
+   - Soundtrack: put your song in the repo (e.g. music/yue-ding.mp3).
+     If the file isn't there, the built-in tune plays instead.
    ===================================================================== */
 const CONFIG = {
   title: 'The Dungeon of Us',
+
+  soundtrack: {
+    file: 'music/yue-ding.mp3',
+    playFrom: 'start',   // 'start' = the whole game, 'finale' = only from the boom on
+    finaleStartAt: 0,    // seconds into the song to jump to at the boom (e.g. the chorus)
+    volume: 0.7,
+  },
   herName: 'My Love',
   yourName: 'Me',
 
@@ -201,6 +210,7 @@ const CONFIG = {
   @keyframes rise { to { transform: translateY(-115vh) rotate(25deg); } }
 
   #finale { position: fixed; inset: 0; }
+  #rainTop { position: fixed; inset: 0; pointer-events: none; }
   #overlay.clear { background: transparent; backdrop-filter: none; }
   #finaleBtn {
     position: fixed; left: 50%; bottom: 3vh; transform: translateX(-50%); margin: 0;
@@ -271,6 +281,7 @@ const CONFIG = {
 <canvas id="finale" class="hidden"></canvas>
 <button class="btn hidden" id="finaleBtn">Open your letter 💌</button>
 <div id="overlay"></div>
+<canvas id="rainTop" class="hidden"></canvas>
 
 <script>
 (() => {
@@ -346,6 +357,7 @@ const CONFIG = {
       if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
       else if (actx.state === 'suspended') actx.resume();
     } catch (e) {}
+    unlockSong();
     startMusic();
   }
   function sfx(freq, dur = 0.1, type = 'square', vol = 0.05, slide = 0) {
@@ -362,20 +374,62 @@ const CONFIG = {
   }
   const chime = notes => notes.forEach((f, i) => setTimeout(() => sfx(f, 0.22, 'triangle', 0.06), i * 100));
 
+  // Your song from CONFIG.soundtrack; the chiptune below steps aside while it plays
+  const ST = CONFIG.soundtrack || {};
+  let song = null, songOn = false, songUnlocked = false, songFade = null;
+  if (ST.file) {
+    song = new Audio(ST.file);
+    song.loop = true; song.preload = 'auto';
+    song.addEventListener('error', () => { song = null; songOn = false; });
+  }
+  function unlockSong() {
+    // iOS only lets audio start inside a tap, so prime it on the first one
+    if (!song || songUnlocked || songOn) return;
+    songUnlocked = true;
+    song.muted = true;
+    song.play().then(() => { if (!songOn) song.pause(); song.muted = muted; }).catch(() => { song.muted = muted; });
+  }
+  function fadeSong(to, secs, then) {
+    clearInterval(songFade);
+    const from = song.volume, t0 = performance.now();
+    songFade = setInterval(() => {
+      if (!song) return clearInterval(songFade);
+      const k = Math.min(1, (performance.now() - t0) / (secs * 1000));
+      song.volume = from + (to - from) * k;
+      if (k >= 1) { clearInterval(songFade); if (then) then(); }
+    }, 50);
+  }
+  function playSong(at) {
+    if (!song) return;
+    if (at !== undefined) { try { song.currentTime = at; } catch (e) {} }
+    if (!songOn) song.volume = 0;
+    songOn = true;
+    song.muted = muted;
+    song.play().catch(() => { songOn = false; });
+    fadeSong(ST.volume ?? 0.7, 2.5);
+  }
+  function stopSong() {
+    if (!song || !songOn) return;
+    fadeSong(0, 1.2, () => { song.pause(); songOn = false; });
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (song && songOn) document.hidden ? song.pause() : song.play().catch(() => {});
+  });
+
   const MELODY = [523, 659, 784, 659, 587, 698, 880, 698, 523, 659, 784, 1046, 988, 784, 659, 587];
   function startMusic() {
     if (musicStarted || !actx) return;
     musicStarted = true;
     let step = 0;
     setInterval(() => {
-      if (muted || document.hidden) return;
+      if (muted || document.hidden || songOn) return;
       const f = MELODY[step % MELODY.length];
       sfx(f / 2, 0.45, 'triangle', 0.018);
       if (step % 4 === 0) sfx(f / 4, 1.2, 'sine', 0.03);
       step++;
     }, 400);
   }
-  function toggleMute() { muted = !muted; $('mute').textContent = muted ? '🔇' : '🔊'; }
+  function toggleMute() { muted = !muted; $('mute').textContent = muted ? '🔇' : '🔊'; if (song) song.muted = muted; }
   $('mute').onclick = e => { e.currentTarget.blur(); initAudio(); toggleMute(); };
   $('wardrobeBtn').onclick = e => { e.currentTarget.blur(); if (state === 'play' && !dlg.active) openWardrobe('play'); };
 
@@ -2152,6 +2206,7 @@ const CONFIG = {
 
   function startGame() {
     initAudio();
+    if (ST.playFrom !== 'finale') playSong();
     buildWorld();
     openWardrobe('start');
   }
@@ -2173,11 +2228,13 @@ const CONFIG = {
       <button class="btn" id="again">Play again</button>
     </div>`);
     $('explore').onclick = () => { endFinale(); state = 'play'; };
-    $('again').onclick = () => { endFinale(); showTitle(); };
+    $('again').onclick = () => { endFinale(); stopSong(); showTitle(); };
+    rt.classList.remove('hidden');
   }
 
   // ---------- Finale: boom, fireworks, then a pink bouquet ----------
   const fc = $('finale'); let fx = fc.getContext('2d');
+  const rt = $('rainTop'), rtx = rt.getContext('2d');
   let fin = null;
 
   function boomSound() {
@@ -2278,6 +2335,9 @@ const CONFIG = {
       stars: Array.from({ length: 80 }, () => ({ x: rand(0, VW), y: rand(0, VH * 0.75), r: rand(0.5, 1.8), ph: rand(0, 6) })),
     };
     if (!rainSprites) bakeRain();
+    rt.width = VW * DPR; rt.height = VH * DPR;
+    rt.style.width = VW + 'px'; rt.style.height = VH + 'px';
+    playSong(ST.playFrom === 'finale' || ST.finaleStartAt ? ST.finaleStartAt || 0 : undefined);
     boomSound();
     firework(VW / 2, VH * 0.45, 90);
   }
@@ -2285,6 +2345,8 @@ const CONFIG = {
   function endFinale() {
     fin = null;
     fc.classList.add('hidden');
+    rt.classList.add('hidden');
+    if (ST.playFrom === 'finale') stopSong();
     $('finaleBtn').classList.add('hidden');
     overlay.classList.remove('clear');
     hideOverlay();
@@ -2502,12 +2564,12 @@ const CONFIG = {
   // ---------- Flower rain ----------
   // Each kind is baked once into a small sprite, then thousands of draws are cheap
   const RAIN_KINDS = [
-    { kind: 'petal', w: 40, size: 22, flat: true, colors: [...PINKS, '#fff0f5'] },
-    { kind: 'sakura', w: 30, size: 38, flat: true, colors: ['#ffc8d9', '#ffd6e4', '#ffb3c7', '#fff0f5', '#ff8fb8'] },
+    { kind: 'petal', w: 40, size: 22, flat: true, colors: PINKS },
+    { kind: 'sakura', w: 30, size: 38, flat: true, colors: ['#ffc8d9', '#ffd6e4', '#ffb3c7', '#ff8fb8', '#ff6f9f'] },
     { kind: 'heart', w: 10, size: 22, flat: true, colors: ['#ff6f9f', '#e5487a', '#ff8fb8'] },
     { kind: 'rose', w: 8, size: 44, colors: ['#ff6f9f', '#e5487a', '#ffb3c7', '#f7559a'] },
     { kind: 'peony', w: 5, size: 46, colors: ['#ff8fb8', '#ffc8d9'] },
-    { kind: 'daisy', w: 5, size: 36, colors: ['#ffffff', '#ffc8d9'] },
+    { kind: 'daisy', w: 3, size: 36, colors: ['#ffc8d9', '#ff8fb8'] },
     { kind: 'tulip', w: 2, size: 40, colors: ['#f7559a', '#ff8fb8'] },
   ];
   let rainSprites = null;
@@ -2632,7 +2694,7 @@ const CONFIG = {
 
     // Spawn: it starts after the boom, then pours when the bouquet is tied
     fin.surge = Math.max(0, fin.surge - dt);
-    const rate = clamp((t - 1.2) / 3, 0, 1) * 16 + (fin.surge > 0 ? 55 : 0);
+    const rate = clamp((t - 1.2) / 3, 0, 1) * 16 + (fin.surge > 0 ? 55 : 0) + (state === 'letter' ? 10 : 0);
     fin.spawn += rate * dt;
     while (fin.spawn >= 1) {
       fin.spawn--;
@@ -2803,7 +2865,11 @@ const CONFIG = {
       fin.surge = 3.5;
     }
 
-    drawRain(true);
+    if (state === 'letter') {
+      // Over the letter the flowers fall in front of it, on their own canvas
+      rtx.setTransform(DPR, 0, 0, DPR, 0, 0); rtx.clearRect(0, 0, VW, VH);
+      const prev = fx; fx = rtx; drawRain(true); fx = prev;
+    } else drawRain(true);
 
     // Greeting
     const gt = B.done + 0.5;

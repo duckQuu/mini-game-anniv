@@ -2527,7 +2527,7 @@ const CONFIG = {
     if (!rainSprites) bakeRain();
     rt.width = VW * DPR; rt.height = VH * DPR;
     rt.style.width = VW + 'px'; rt.style.height = VH + 'px';
-    $('finaleBtn').textContent = hasMovie() ? 'Watch our story 🎬' : 'Open your letter 💌';
+    loadMoviePhotos();
     playSong(ST.playFrom === 'finale' || ST.finaleStartAt ? ST.finaleStartAt || 0 : undefined);
     boomSound();
     firework(VW / 2, VH * 0.45, 90);
@@ -2547,8 +2547,17 @@ const CONFIG = {
 
   // ---------- Photo movie ----------
   const MV = CONFIG.movie || {};
-  const hasMovie = () => !!(MV.photos && MV.photos.length);
-  let mv = null;
+  let mv = null, moviePhotos = null, movieLoad = null;
+  // Photos that actually load; any that fail are just left out
+  function loadMoviePhotos() {
+    if (!movieLoad) movieLoad = Promise.all((MV.photos || []).map(ph => new Promise(res => {
+      const img = new Image();
+      img.onload = () => res(ph); img.onerror = () => res(null);
+      img.src = ph.src;
+    }))).then(list => (moviePhotos = list.filter(Boolean)));
+    return movieLoad;
+  }
+  const hasMovie = () => (moviePhotos ? moviePhotos.length : (MV.photos || []).length) > 0;
 
   function playMovie() {
     state = 'movie';
@@ -2563,16 +2572,10 @@ const CONFIG = {
       if (songOn) fadeSong(0, 0.8, () => playSong(MV.musicStartAt)); else playSong(MV.musicStartAt);
     }
     mv = { i: -1, slides: [], timer: null };
-    // Load every photo first; any that fail are just left out
-    const loads = MV.photos.map(ph => new Promise(res => {
-      const img = new Image();
-      img.onload = () => res(ph); img.onerror = () => res(null);
-      img.src = ph.src;
-    }));
     const cur = mv;
-    Promise.all([...loads, new Promise(r => setTimeout(r, 3200))]).then(list => {
+    Promise.all([loadMoviePhotos(), new Promise(r => setTimeout(r, 3200))]).then(([list]) => {
       if (mv !== cur) return;
-      mv.slides = list.slice(0, -1).filter(Boolean);
+      mv.slides = list;
       if (!mv.slides.length) return endMovie();
       $('mvDots').innerHTML = mv.slides.map(() => '<i></i>').join('');
       nextSlide(1);
@@ -3172,7 +3175,11 @@ const CONFIG = {
       fx.strokeText(name, VW / 2, y + s2 * 0.95); fx.fillStyle = '#ffd166'; fx.fillText(name, VW / 2, y + s2 * 0.95);
       fx.globalAlpha = 1;
     }
-    if (!fin.btn && t > gt + 1.8) { fin.btn = true; $('finaleBtn').classList.remove('hidden'); }
+    if (!fin.btn && t > gt + 1.8) {
+      fin.btn = true;
+      $('finaleBtn').textContent = hasMovie() ? 'Watch our story 🎬' : 'Open your letter 💌';
+      $('finaleBtn').classList.remove('hidden');
+    }
 
     // The BOOM: white flash and shockwave
     if (t < 0.9) {

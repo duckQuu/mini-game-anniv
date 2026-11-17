@@ -25,8 +25,8 @@ const CONFIG = {
 
   soundtrack: {
     file: 'music/yue-ding.mp3',
-    playFrom: 'start',   // 'start' = the whole game, 'finale' = only from the boom on
-    finaleStartAt: 0,    // seconds into the song to jump to at the boom (e.g. the chorus)
+    playFrom: 'finale',  // 'start' = the whole game, 'finale' = only from the boom on (the game has the piano ballad)
+    finaleStartAt: 52,   // seconds into the song to jump to at the boom: 0:52 is where the chorus starts
     volume: 0.7,
   },
   herName: 'Reika Sayangg',
@@ -40,7 +40,7 @@ const CONFIG = {
     { who: '???', say: 'Psst... {her}! Over here.' },
     { who: '???', say: "Welcome to the Dungeon of Us. Deep inside, there's a treasure waiting just for you." },
     { who: '???', say: 'But every door is guarded. The guardians will test you, then ask something only you would know.' },
-    { who: '???', say: 'WASD to walk, SPACE to dash, E to talk, C to change outfits.\nWatch out for slimes, and grab the floating hearts. Each one hides a memory. Good luck! 💗' },
+    { who: '???', say: 'Watch out for slimes, and grab the floating hearts. Each one hides a memory. Good luck! 💗' },
   ],
 
   // One entry per locked door, in order (up to 4).
@@ -125,7 +125,7 @@ const CONFIG = {
     title: 'Our Story',
     subtitle: '{you} 💗 {her}',
     secondsPerPhoto: 6,
-    musicStartAt: 0,      // the song starts over with the movie; null keeps it going
+    musicStartAt: 0,      // the song starts from the beginning with the movie; null keeps it going
     photos: [
       { src: 'photos/01.jpg', text: 'Boo, scary 👻' },
       { src: 'photos/02.jpg', text: 'My favorite goofball 🤪' },

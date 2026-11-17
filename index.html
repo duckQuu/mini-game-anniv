@@ -114,11 +114,39 @@ const CONFIG = {
   movie: {
     title: 'Our Story',
     subtitle: '{you} 💗 {her}',
-    secondsPerPhoto: 5,
-    musicStartAt: null,   // e.g. 60 jumps the song to 1:00 when the movie starts
+    secondsPerPhoto: 6,
+    musicStartAt: 0,      // the song starts over with the movie; null keeps it going
     photos: [
-      // { src: 'photos/1.jpg', text: 'The first day we met' },
-      // { src: 'photos/2.jpg', text: 'Our first trip together' },
+      { src: 'photos/01.jpg', text: "Even half asleep on a call, you're my favorite view" },
+      { src: 'photos/02.jpg', text: 'My favorite goofball 🤪' },
+      { src: 'photos/03.jpg', text: 'Getting even prettier (is that possible?)' },
+      { src: 'photos/04.jpg', text: 'Every call with you is the best part of my day 📱' },
+      { src: 'photos/05.jpg', text: 'Making faces at me when I should be working' },
+      { src: 'photos/06.jpg', text: 'You and me 💗' },
+      { src: 'photos/07.jpg', text: 'So brave at the dentist 🦷' },
+      { src: 'photos/08.jpg', text: 'Picking the best fruits together 🍊' },
+      { src: 'photos/09.jpg', text: 'Every hair color looks cute on you 💇\u200d♀️' },
+      { src: 'photos/10.jpg', text: 'This face. I love this face.' },
+      { src: 'photos/11.jpg', text: 'The bouquet surprise 💐' },
+      { src: 'photos/12.jpg', text: 'Those big eyes 👀' },
+      { src: 'photos/13.jpg', text: "Even on the sad days, I'm right here 🤍" },
+      { src: 'photos/14.jpg', text: 'Us, under the sea 🐠' },
+      { src: 'photos/15.jpg', text: 'My Minecraft girl ⛏️' },
+      { src: 'photos/16.jpg', text: 'Pouty face, still the cutest' },
+      { src: 'photos/17.jpg', text: "Dancing like nobody's watching (I was) 💃" },
+      { src: 'photos/18.jpg', text: 'Squishy cheeks 🥰' },
+      { src: 'photos/19.jpg', text: 'Just you, being beautiful' },
+      { src: 'photos/20.jpg', text: 'Late-night calls, wet hair and all' },
+      { src: 'photos/21.jpg', text: 'Caught you mid-thought 😆' },
+      { src: 'photos/22.jpg', text: 'Walking side by side' },
+      { src: 'photos/23.jpg', text: 'Sip sip, so cute 🧋' },
+      { src: 'photos/24.jpg', text: 'Peekaboo from the back seat 🚗' },
+      { src: 'photos/25.jpg', text: "Messy hair, don't care 💕" },
+      { src: 'photos/26.jpg', text: 'That shy little smile' },
+      { src: 'photos/27.jpg', text: 'Lazy days with you' },
+      { src: 'photos/28.jpg', text: 'Pool shark in training 🎱' },
+      { src: 'photos/29.jpg', text: 'Mall dates with my favorite person 🛍️' },
+      { src: 'photos/30.jpg', text: 'So proud of you, always 💗' },
     ],
     ending: 'And our story continues… 💗',
   },
@@ -244,8 +272,8 @@ const CONFIG = {
   .mv-cap { flex: 0 0 auto; min-height: 17vh; display: flex; align-items: center; justify-content: center; padding: 8px 20px 26px; box-sizing: border-box;
     font-family: Caveat, cursive; font-size: clamp(26px, 4.6vw, 40px); line-height: 1.15; color: #fff; text-align: center; text-shadow: 0 0 18px rgba(255,111,159,.8); }
   .mv-cap span { animation: fadeIn 1s ease-out .5s both; }
-  .mv-dots { position: absolute; left: 0; right: 0; bottom: 10px; display: flex; justify-content: center; gap: 6px; }
-  .mv-dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.25); transition: background .4s, transform .4s; }
+  .mv-dots { position: absolute; left: 0; right: 0; bottom: 10px; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; padding: 0 16px; }
+  .mv-dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.25); transition: background .4s, transform .4s; }
   .mv-dots i.on { background: #ff8fb8; transform: scale(1.4); }
   #mvSkip { position: absolute; top: 12px; right: 12px; z-index: 2; background: rgba(255,255,255,.12); color: #fff; border: 0; border-radius: 99px; padding: 8px 14px; font: 600 14px Fredoka, sans-serif; cursor: pointer; }
   #mvLetter { position: absolute; left: 50%; bottom: 4vh; transform: translateX(-50%); margin: 0; z-index: 2; animation: pop .6s ease-out; }
@@ -2498,7 +2526,9 @@ const CONFIG = {
     $('mvLetter').classList.add('hidden');
     $('mvStage').innerHTML = `<div class="mv-card"><h1>${esc(fmt(MV.title || 'Our Story'))}</h1><p>${esc(fmt(MV.subtitle || ''))}</p></div>`;
     $('mvCap').innerHTML = ''; $('mvDots').innerHTML = '';
-    if (typeof MV.musicStartAt === 'number') playSong(MV.musicStartAt);
+    if (typeof MV.musicStartAt === 'number') {
+      if (songOn) fadeSong(0, 0.8, () => playSong(MV.musicStartAt)); else playSong(MV.musicStartAt);
+    }
     mv = { i: -1, slides: [], timer: null };
     // Load every photo first; any that fail are just left out
     const loads = MV.photos.map(ph => new Promise(res => {
